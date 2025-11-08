@@ -8,6 +8,54 @@ function getWindDirection(degrees: number): string {
   return directions[index];
 }
 
+// Helper function to calculate smart risk score based on conditions
+function calculateSmartRiskScore(
+  weather: WeatherData,
+  fire: FireData,
+  earthData?: EarthEngineData
+): number {
+  let score = 0;
+
+  // Humidity factor (25%) - Lower is more dangerous
+  const humidityScore = Math.max(0, (100 - weather.humidity) * 0.25);
+  score += humidityScore;
+
+  // Wind speed factor (20%) - Higher is more dangerous
+  const windScore = Math.min(weather.windSpeed * 2, 20);
+  score += windScore;
+
+  // Temperature factor (15%) - Higher is more dangerous
+  const tempScore = Math.min(weather.temperature * 0.5, 15);
+  score += tempScore;
+
+  if (earthData) {
+    // Vegetation/Soil/Drought (25%)
+    const vegetationScore = (1 - earthData.ndvi) * 8; // Low NDVI = high risk
+    const soilScore = (100 - earthData.soilMoisture) * 0.08; // Low moisture = high risk
+    const droughtScore = earthData.drought * 9; // High drought = high risk
+    score += vegetationScore + soilScore + droughtScore;
+
+    // Historical fires (15%)
+    const fireHistoryScore = Math.min(fire.fireCount * 3, 15);
+    score += fireHistoryScore;
+  } else {
+    // Without earth data, give more weight to historical fires (40%)
+    const fireHistoryScore = Math.min(fire.riskScore * 0.4, 40);
+    score += fireHistoryScore;
+  }
+
+  // Ensure score is between 0 and 100
+  return Math.round(Math.min(Math.max(score, 0), 100));
+}
+
+// Helper function to get risk level from score
+function getRiskLevelFromScore(score: number): 'low' | 'medium' | 'high' | 'extreme' {
+  if (score >= 76) return 'extreme';
+  if (score >= 56) return 'high';
+  if (score >= 36) return 'medium';
+  return 'low';
+}
+
 export async function generateInsights(
   location: LocationData,
   weather: WeatherData,
@@ -112,13 +160,40 @@ CALCULATE AND PROVIDE:
 
 ⚠️ IMPORTANT: Pay special attention to the combination of low humidity AND high winds - this creates the most dangerous fire conditions!
 
-RESPONSE FORMAT (MUST be valid JSON):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📤 REQUIRED RESPONSE FORMAT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+YOU MUST respond with VALID JSON ONLY. No markdown, no code blocks, no explanations outside the JSON.
+
+EXACT FORMAT:
 {
-  "riskScore": <number 0-100>,
-  "riskLevel": "low|medium|high|extreme",
-  "analysis": "<your detailed analysis considering coordinates ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}, humidity ${weather.humidity}%, wind speed ${weather.windSpeed} km/h, and all other factors>",
-  "recommendations": ["<specific recommendation 1>", "<specific recommendation 2>", "<specific recommendation 3>"]
-}`
+  "riskScore": 75,
+  "riskLevel": "high",
+  "analysis": "Your analysis here",
+  "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"]
+}
+
+RULES:
+- "riskScore" MUST be a NUMBER between 0 and 100 (not a string!)
+- "riskLevel" MUST be one of: "low", "medium", "high", or "extreme"
+- "analysis" MUST mention the coordinates (${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}), humidity (${weather.humidity}%), and wind speed (${weather.windSpeed} km/h)
+- "recommendations" MUST be an array of 3-5 strings
+
+EXAMPLE VALID RESPONSE:
+{
+  "riskScore": 82,
+  "riskLevel": "extreme",
+  "analysis": "At coordinates ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}, the combination of ${weather.humidity}% humidity and ${weather.windSpeed} km/h wind speed creates critical fire conditions. The low humidity will cause rapid ignition and the winds will spread fire quickly.",
+  "recommendations": [
+    "Avoid all outdoor burning and fire-related activities",
+    "Clear dry vegetation within 30 feet of structures",
+    "Have evacuation routes planned and ready",
+    "Monitor local fire alerts continuously"
+  ]
+}
+
+NOW PROVIDE YOUR RESPONSE AS VALID JSON:`
 
     // Try each model until one works
     let text = ''
@@ -143,23 +218,56 @@ RESPONSE FORMAT (MUST be valid JSON):
       throw new Error(`No available Gemini model found. Last error: ${lastError?.message || 'Unknown'}`)
     }
 
+    console.log('🤖 Raw AI response:', text.substring(0, 500)) // Log first 500 chars
+
     // Try to parse JSON from the response
     try {
-      const jsonMatch = text.match(/\{[\s\S]*\}/)
+      // Remove markdown code blocks if present
+      let cleanText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
+      
+      // Extract JSON object
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
+        
+        console.log('✅ Parsed AI response:', {
+          riskScore: parsed.riskScore,
+          riskLevel: parsed.riskLevel,
+          hasAnalysis: !!parsed.analysis,
+          hasRecommendations: !!parsed.recommendations,
+        })
+        
         return {
           recommendations: parsed.recommendations || generateDefaultRecommendations(weather, fire),
           aiInsights: parsed.analysis || 'AI analysis generated successfully.',
           aiRiskScore: typeof parsed.riskScore === 'number' ? parsed.riskScore : undefined,
-          aiRiskLevel: parsed.riskLevel || undefined,
+          aiRiskLevel: parsed.riskLevel ? String(parsed.riskLevel).toLowerCase() : undefined,
         }
       }
     } catch (e) {
-      // If JSON parsing fails, extract recommendations from text
+      console.error('❌ Failed to parse AI JSON response:', e)
+      console.log('Attempting text extraction...')
+      
+      // If JSON parsing fails, try to extract data from text
       const lines = text.split('\n').filter((line: string) => line.trim().length > 0)
       const recommendations: string[] = []
       let analysis = ''
+      let extractedScore: number | undefined = undefined
+      let extractedLevel: string | undefined = undefined
+
+      // Try to extract risk score from text (e.g., "risk score: 75" or "riskScore: 75")
+      const scoreMatch = text.match(/risk\s*score[:\s]+(\d+)/i)
+      if (scoreMatch) {
+        extractedScore = parseInt(scoreMatch[1])
+        console.log(`📊 Extracted risk score from text: ${extractedScore}`)
+      }
+
+      // Try to extract risk level from text
+      const levelMatch = text.match(/risk\s*level[:\s]+(low|medium|high|extreme)/i)
+      if (levelMatch) {
+        extractedLevel = levelMatch[1].toLowerCase()
+        console.log(`📊 Extracted risk level from text: ${extractedLevel}`)
+      }
 
       for (const line of lines) {
         if (line.match(/^\d+[\.\)]/) || line.startsWith('-')) {
@@ -169,27 +277,48 @@ RESPONSE FORMAT (MUST be valid JSON):
         }
       }
 
+      // If we couldn't extract a score, calculate one based on conditions
+      if (!extractedScore) {
+        extractedScore = calculateSmartRiskScore(weather, fire, earthData)
+        console.log(`🧮 Calculated smart risk score: ${extractedScore}`)
+      }
+
+      // If we couldn't extract a level, derive it from score
+      if (!extractedLevel && extractedScore) {
+        extractedLevel = getRiskLevelFromScore(extractedScore)
+        console.log(`🏷️ Derived risk level from score: ${extractedLevel}`)
+      }
+
       return {
         recommendations: recommendations.length > 0 ? recommendations : generateDefaultRecommendations(weather, fire),
         aiInsights: analysis.trim() || 'AI analysis generated from structured data.',
-        aiRiskScore: undefined,
-        aiRiskLevel: undefined,
+        aiRiskScore: extractedScore,
+        aiRiskLevel: extractedLevel,
       }
     }
 
+    // Fallback: calculate smart risk score
+    const smartScore = calculateSmartRiskScore(weather, fire, earthData)
+    const smartLevel = getRiskLevelFromScore(smartScore)
+    
     return {
       recommendations: generateDefaultRecommendations(weather, fire),
       aiInsights: 'AI analysis generated successfully.',
-      aiRiskScore: undefined,
-      aiRiskLevel: undefined,
+      aiRiskScore: smartScore,
+      aiRiskLevel: smartLevel,
     }
   } catch (error: any) {
     console.error('Error generating Gemini insights:', error)
+    
+    // Even on error, provide calculated risk score
+    const smartScore = calculateSmartRiskScore(weather, fire, earthData)
+    const smartLevel = getRiskLevelFromScore(smartScore)
+    
     return {
       recommendations: generateDefaultRecommendations(weather, fire),
-      aiInsights: `Unable to generate AI insights: ${error?.message || 'Unknown error'}. Using default recommendations.`,
-      aiRiskScore: undefined,
-      aiRiskLevel: undefined,
+      aiInsights: `Unable to generate AI insights: ${error?.message || 'Unknown error'}. Using calculated risk assessment.`,
+      aiRiskScore: smartScore,
+      aiRiskLevel: smartLevel,
     }
   }
 }
