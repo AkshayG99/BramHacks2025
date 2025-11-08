@@ -1,10 +1,18 @@
-import { WeatherData, FireData, LocationData } from '@/types'
+import { WeatherData, FireData, LocationData, EarthEngineData } from '@/types'
 import { GoogleGenerativeAI } from '@google/generative-ai'
+
+// Helper function to convert wind direction degrees to cardinal direction
+function getWindDirection(degrees: number): string {
+  const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+  const index = Math.round(degrees / 22.5) % 16;
+  return directions[index];
+}
 
 export async function generateInsights(
   location: LocationData,
   weather: WeatherData,
-  fire: FireData
+  fire: FireData,
+  earthData?: EarthEngineData
 ): Promise<{ recommendations: string[], aiInsights: string, aiRiskScore?: number, aiRiskLevel?: string }> {
   const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.NEXT_PUBLIC_GEMINI_API_KEY || ''
   
@@ -31,35 +39,85 @@ export async function generateInsights(
       'gemini-1.5-pro-latest',
     ]
 
-    const prompt = `You are a forest fire risk analyst. Analyze the following location data and provide insights:
+    const earthDataSection = earthData ? `
+Earth Engine Satellite Data:
+- Vegetation Health (NDVI): ${earthData.ndvi.toFixed(3)} (-1 to 1 scale, lower = drier/stressed vegetation)
+- Enhanced Vegetation (EVI): ${earthData.evi.toFixed(3)} (vegetation density indicator)
+- Soil Moisture: ${earthData.soilMoisture.toFixed(1)}% (CRITICAL: lower = higher fire risk)
+- Land Surface Temperature: ${earthData.landSurfaceTemp.toFixed(1)}°C (higher = increased fire danger)
+- Historical Burns: ${earthData.burnedArea} burned area(s) detected in the past year
+- Drought Index: ${(earthData.drought * 100).toFixed(0)}% (0-100 scale, higher = more severe drought conditions)
+` : '';
 
-Location: ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}
-Weather Conditions:
-- Humidity: ${weather.humidity}%
-- Temperature: ${weather.temperature}°C
-- Wind Speed: ${weather.windSpeed} km/h
-- Visibility: ${weather.visibility} km
-- Condition: ${weather.description}
+    const prompt = `You are an expert wildfire risk analyst. Perform a comprehensive analysis of the following location:
 
-Fire Risk Assessment:
-- Current Risk Level: ${fire.riskLevel}
-- Current Risk Score: ${fire.riskScore}/100
-- Historical Fires: ${fire.historicalFires}
-- Recent Fires: ${fire.fireCount}
-${fire.lastFireDate ? `- Last Fire: ${fire.lastFireDate}` : ''}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📍 LOCATION DETAILS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Name: ${location.name || 'Unnamed Location'}
+Coordinates: Latitude ${location.lat.toFixed(6)}°, Longitude ${location.lng.toFixed(6)}°
+Precise Position: ${location.lat}°N, ${location.lng}°E
 
-Based on the weather conditions, historical fire data, and location characteristics, provide:
-1. Your own calculated risk score (0-100) based on your analysis of all factors
-2. A corresponding risk level (low, medium, high, or extreme)
-3. A brief 2-3 sentence analysis explaining your risk assessment
-4. 3-5 specific, actionable recommendations for fire prevention and safety
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+☁️ WEATHER CONDITIONS (CRITICAL FACTORS)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🌡️ Temperature: ${weather.temperature}°C (${(weather.temperature * 9/5 + 32).toFixed(1)}°F)
+💧 Relative Humidity: ${weather.humidity}% ⚠️ ${weather.humidity < 30 ? 'CRITICALLY LOW - HIGH FIRE RISK' : weather.humidity < 50 ? 'LOW - ELEVATED FIRE RISK' : 'MODERATE'}
+💨 Wind Speed: ${weather.windSpeed} km/h (${(weather.windSpeed / 1.609).toFixed(1)} mph) ⚠️ ${weather.windSpeed > 20 ? 'HIGH WINDS - RAPID FIRE SPREAD RISK' : weather.windSpeed > 10 ? 'MODERATE WINDS - MONITOR' : 'LIGHT WINDS'}
+🧭 Wind Direction: ${weather.windDirection}° (${getWindDirection(weather.windDirection)})
+👁️ Visibility: ${weather.visibility || 'N/A'} km
+🌤️ Current Conditions: ${weather.description}
+🔽 Atmospheric Pressure: ${weather.pressure} hPa
+${earthDataSection}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔥 FIRE RISK ASSESSMENT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Current Risk Level: ${fire.riskLevel.toUpperCase()}
+Current Risk Score: ${fire.riskScore}/100
+Total Historical Fires in Region: ${fire.historicalFires}
+Recent Active Fires Nearby: ${fire.fireCount}
+${fire.lastFireDate ? `Most Recent Fire: ${fire.lastFireDate}` : 'No recent fire history available'}
 
-Format your response as JSON:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 YOUR ANALYSIS TASK
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Analyze ALL the data provided above with special attention to:
+
+KEY FIRE RISK FACTORS TO CONSIDER:
+1. 💧 HUMIDITY: ${weather.humidity}% - Low humidity (<30%) = extreme fire risk, rapid ignition
+2. 💨 WIND SPEED: ${weather.windSpeed} km/h - High winds (>20 km/h) = rapid fire spread danger
+3. 🌡️ TEMPERATURE: ${weather.temperature}°C - High temps (>30°C) = increased fire probability
+${earthData ? `4. 🌿 VEGETATION: NDVI ${earthData.ndvi.toFixed(3)} - Low values (<0.3) = dry fuel, high risk
+5. 💧 SOIL MOISTURE: ${earthData.soilMoisture.toFixed(1)}% - Low moisture (<30%) = critical drought conditions
+6. 🏜️ DROUGHT INDEX: ${(earthData.drought * 100).toFixed(0)}% - High values (>50%) = severe fire weather` : ''}
+
+CALCULATE AND PROVIDE:
+1. **Comprehensive Risk Score (0-100)**: Weight the factors appropriately
+   - Humidity: 25% (lower = higher risk)
+   - Wind Speed: 20% (higher = higher risk)
+   - Temperature: 15% (higher = higher risk)
+   ${earthData ? `- Vegetation/Soil/Drought: 25% (combined satellite data)
+   - Historical fires: 15% (past activity indicator)` : `- Historical fires: 40% (past activity indicator)`}
+
+2. **Risk Level Classification**:
+   - LOW (0-35): Minimal fire danger
+   - MEDIUM (36-55): Moderate precautions needed
+   - HIGH (56-75): Significant fire risk, high alert
+   - EXTREME (76-100): Critical danger, immediate action required
+
+3. **Detailed Analysis (2-3 sentences)**: Explain your reasoning, highlighting the MOST CRITICAL factors affecting this location's fire risk right now.
+
+4. **Actionable Recommendations (3-5 items)**: Specific, practical advice based on the current conditions.
+
+⚠️ IMPORTANT: Pay special attention to the combination of low humidity AND high winds - this creates the most dangerous fire conditions!
+
+RESPONSE FORMAT (MUST be valid JSON):
 {
-  "riskScore": your_calculated_score_number,
+  "riskScore": <number 0-100>,
   "riskLevel": "low|medium|high|extreme",
-  "analysis": "your analysis here",
-  "recommendations": ["recommendation 1", "recommendation 2", "recommendation 3"]
+  "analysis": "<your detailed analysis considering coordinates ${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}, humidity ${weather.humidity}%, wind speed ${weather.windSpeed} km/h, and all other factors>",
+  "recommendations": ["<specific recommendation 1>", "<specific recommendation 2>", "<specific recommendation 3>"]
 }`
 
     // Try each model until one works

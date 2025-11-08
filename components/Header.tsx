@@ -7,7 +7,7 @@ import {
   useRef,
   type FormEvent,
 } from 'react'
-import type { LocationData, WeatherData, FireData } from '@/types'
+import type { LocationData, WeatherData, FireData, EarthEngineData } from '@/types'
 import type { LucideIcon } from 'lucide-react'
 import {
   Flame,
@@ -29,6 +29,7 @@ interface HeaderProps {
   insights: {
     weather: WeatherData
     fire: FireData
+    earthData?: EarthEngineData
     recommendations?: string[]
     aiInsights?: string
     aiRiskScore?: number
@@ -637,6 +638,158 @@ export default function Header({
                           </p>
                         )}
                       </div>
+
+                      {/* Earth Engine Satellite Data Section */}
+                      {insights.earthData && (
+                        <div className="rounded-2xl border border-white/50 bg-gradient-to-br from-white/90 to-white/70 p-4 shadow-lg backdrop-blur-sm">
+                          <div className="mb-3 flex items-center gap-2">
+                            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 via-green-500 to-emerald-600 text-white shadow-md">
+                              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                            </div>
+                            <div>
+                              <p className="text-xs uppercase tracking-[0.3em] text-apple-dark/50">
+                                Earth Engine
+                              </p>
+                              <p className="text-sm font-semibold text-apple-dark">
+                                Satellite Data
+                              </p>
+                            </div>
+                          </div>
+                          
+                          <div className="space-y-3">
+                            {/* Vegetation Health - NDVI */}
+                            <div className="flex items-center justify-between rounded-xl bg-white/60 p-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-green-100">
+                                  <span className="text-lg">🌿</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-apple-dark/60">Vegetation Health (NDVI)</p>
+                                  <p className="text-sm font-semibold text-apple-dark">
+                                    {insights.earthData.ndvi.toFixed(3)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className={`rounded-full px-2 py-1 text-xs font-medium ${
+                                insights.earthData.ndvi > 0.6 ? 'bg-green-100 text-green-700' :
+                                insights.earthData.ndvi > 0.3 ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-red-100 text-red-700'
+                              }`}>
+                                {insights.earthData.ndvi > 0.6 ? 'Healthy' :
+                                 insights.earthData.ndvi > 0.3 ? 'Moderate' : 'Stressed'}
+                              </div>
+                            </div>
+
+                            {/* Enhanced Vegetation Index - EVI */}
+                            <div className="flex items-center justify-between rounded-xl bg-white/60 p-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100">
+                                  <span className="text-lg">🌱</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-apple-dark/60">Enhanced Vegetation (EVI)</p>
+                                  <p className="text-sm font-semibold text-apple-dark">
+                                    {insights.earthData.evi.toFixed(3)}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Soil Moisture */}
+                            <div className="flex items-center justify-between rounded-xl bg-white/60 p-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-100">
+                                  <span className="text-lg">💧</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-apple-dark/60">Soil Moisture</p>
+                                  <p className="text-sm font-semibold text-apple-dark">
+                                    {insights.earthData.soilMoisture.toFixed(1)}%
+                                  </p>
+                                </div>
+                              </div>
+                              <div className={`rounded-full px-2 py-1 text-xs font-medium ${
+                                insights.earthData.soilMoisture > 50 ? 'bg-blue-100 text-blue-700' :
+                                insights.earthData.soilMoisture > 30 ? 'bg-yellow-100 text-yellow-700' :
+                                'bg-orange-100 text-orange-700'
+                              }`}>
+                                {insights.earthData.soilMoisture > 50 ? 'Good' :
+                                 insights.earthData.soilMoisture > 30 ? 'Low' : 'Very Low'}
+                              </div>
+                            </div>
+
+                            {/* Land Surface Temperature */}
+                            <div className="flex items-center justify-between rounded-xl bg-white/60 p-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-orange-100">
+                                  <span className="text-lg">🌡️</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-apple-dark/60">Surface Temperature</p>
+                                  <p className="text-sm font-semibold text-apple-dark">
+                                    {insights.earthData.landSurfaceTemp.toFixed(1)}°C
+                                  </p>
+                                </div>
+                              </div>
+                              <div className={`rounded-full px-2 py-1 text-xs font-medium ${
+                                insights.earthData.landSurfaceTemp > 35 ? 'bg-red-100 text-red-700' :
+                                insights.earthData.landSurfaceTemp > 25 ? 'bg-orange-100 text-orange-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {insights.earthData.landSurfaceTemp > 35 ? 'Hot' :
+                                 insights.earthData.landSurfaceTemp > 25 ? 'Warm' : 'Cool'}
+                              </div>
+                            </div>
+
+                            {/* Drought Index */}
+                            <div className="flex items-center justify-between rounded-xl bg-white/60 p-3">
+                              <div className="flex items-center gap-2">
+                                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-100">
+                                  <span className="text-lg">🏜️</span>
+                                </div>
+                                <div>
+                                  <p className="text-xs text-apple-dark/60">Drought Index</p>
+                                  <p className="text-sm font-semibold text-apple-dark">
+                                    {(insights.earthData.drought * 100).toFixed(0)}%
+                                  </p>
+                                </div>
+                              </div>
+                              <div className={`rounded-full px-2 py-1 text-xs font-medium ${
+                                insights.earthData.drought > 0.6 ? 'bg-red-100 text-red-700' :
+                                insights.earthData.drought > 0.4 ? 'bg-orange-100 text-orange-700' :
+                                'bg-green-100 text-green-700'
+                              }`}>
+                                {insights.earthData.drought > 0.6 ? 'Severe' :
+                                 insights.earthData.drought > 0.4 ? 'Moderate' : 'Low'}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Burned Area Warning */}
+                          {insights.earthData.burnedArea > 0 && (
+                            <div className="mt-3 rounded-lg bg-orange-50 border border-orange-200 p-3">
+                              <div className="flex items-start gap-2">
+                                <span className="text-lg">⚠️</span>
+                                <div>
+                                  <p className="text-xs font-semibold text-orange-800">
+                                    Historical Burn Activity
+                                  </p>
+                                  <p className="text-xs text-orange-700">
+                                    {insights.earthData.burnedArea} burned area(s) detected in past year
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Data Source Attribution */}
+                          <p className="mt-3 text-[10px] text-apple-dark/40 text-center">
+                            Data from Google Earth Engine • MODIS Satellites
+                          </p>
+                        </div>
+                      )}
 
                       {(insights.aiInsights || recommendationList.length > 0) && (
                         <div className="rounded-2xl border border-white/50 bg-white/80 p-4">
