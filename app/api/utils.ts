@@ -1,16 +1,41 @@
-import { WeatherData, FireData, LocationData } from '@/types'
-import { generateInsights } from './gemini'
+import { WeatherData, FireData } from '@/types'
 
 const OPENWEATHER_API_KEY = process.env.NEXT_PUBLIC_OPENWEATHER_API_KEY || ''
 
-const fallbackConditions = [
-  'smoke-hazed skies',
-  'dry offshore flow',
-  'patchy clouds',
-  'low marine layer',
-  'hot downslope winds',
-  'monsoon moisture nearby',
-]
+// Helper function to convert Open-Meteo weather code to description
+export const getWeatherDescription = (code: number): string => {
+  const weatherCodes: Record<number, string> = {
+    0: 'clear sky',
+    1: 'mainly clear',
+    2: 'partly cloudy',
+    3: 'overcast',
+    45: 'foggy',
+    48: 'depositing rime fog',
+    51: 'light drizzle',
+    53: 'moderate drizzle',
+    55: 'dense drizzle',
+    56: 'light freezing drizzle',
+    57: 'dense freezing drizzle',
+    61: 'slight rain',
+    63: 'moderate rain',
+    65: 'heavy rain',
+    66: 'light freezing rain',
+    67: 'heavy freezing rain',
+    71: 'slight snow',
+    73: 'moderate snow',
+    75: 'heavy snow',
+    77: 'snow grains',
+    80: 'slight rain showers',
+    81: 'moderate rain showers',
+    82: 'violent rain showers',
+    85: 'slight snow showers',
+    86: 'heavy snow showers',
+    95: 'thunderstorm',
+    96: 'thunderstorm with slight hail',
+    99: 'thunderstorm with heavy hail',
+  }
+  return weatherCodes[code] || 'unknown'
+}
 
 const seededValue = (lat: number, lng: number, offset: number) => {
   const seed = (lat + 90) * 1000 + (lng + 180) * 1000 + offset
@@ -18,15 +43,27 @@ const seededValue = (lat: number, lng: number, offset: number) => {
   return x - Math.floor(x)
 }
 
-const buildFallbackWeather = (lat: number, lng: number): WeatherData => {
-  const humidity = Math.round(25 + seededValue(lat, lng, 1) * 50)
-  const temperature = Math.round(12 + seededValue(lat, lng, 2) * 28)
-  const windSpeed = Math.round(6 + seededValue(lat, lng, 3) * 40)
-  const windDirection = Math.round(seededValue(lat, lng, 4) * 360)
-  const pressure = Math.round(996 + seededValue(lat, lng, 5) * 25)
-  const visibility = Math.round((5 + seededValue(lat, lng, 6) * 8) * 10) / 10
-  const description =
-    fallbackConditions[Math.floor(seededValue(lat, lng, 7) * fallbackConditions.length)]
+const fallbackConditions = [
+  'clear sky',
+  'partly cloudy',
+  'mostly cloudy',
+  'overcast',
+  'light rain',
+  'moderate rain',
+]
+
+export const buildFallbackWeather = (lat: number, lng: number): WeatherData => {
+  const baseTemp = 20 - Math.abs(lat) * 0.3
+  const tempVariation = seededValue(lat, lng, 2) * 15
+  const temperature = Math.round(baseTemp + tempVariation - 7.5)
+  const humidity = Math.round(40 + seededValue(lat, lng, 1) * 40)
+  const windSpeed = Math.round(5 + seededValue(lat, lng, 3) * 20)
+  const commonDirections = [0, 45, 90, 135, 180, 225, 270, 315]
+  const windDirection = commonDirections[Math.floor(seededValue(lat, lng, 4) * commonDirections.length)]
+  const pressure = Math.round(1000 + (seededValue(lat, lng, 5) - 0.5) * 40)
+  const visibility = Math.round((8 + seededValue(lat, lng, 6) * 7) * 10) / 10
+  const descSeed = seededValue(lat, lng, 7)
+  const description = fallbackConditions[Math.floor(descSeed * fallbackConditions.length)]
 
   return {
     humidity,
@@ -39,7 +76,7 @@ const buildFallbackWeather = (lat: number, lng: number): WeatherData => {
   }
 }
 
-const buildFallbackFire = (lat: number, lng: number): FireData => {
+export const buildFallbackFire = (lat: number, lng: number): FireData => {
   const vegetationStress = seededValue(lat, lng, 10)
   const windImpact = seededValue(lat, lng, 11)
   const droughtFactor = seededValue(lat, lng, 12)
@@ -75,10 +112,9 @@ const buildFallbackFire = (lat: number, lng: number): FireData => {
 }
 
 const EARTH_RADIUS_KM = 6371
-
 const toRadians = (value: number) => (value * Math.PI) / 180
 
-const distanceBetween = (
+export const distanceBetween = (
   lat1: number,
   lon1: number,
   lat2: number,
@@ -97,37 +133,72 @@ const distanceBetween = (
   return EARTH_RADIUS_KM * c
 }
 
+// Fetch weather data from APIs
 export async function fetchWeatherData(lat: number, lng: number): Promise<WeatherData> {
-  if (!OPENWEATHER_API_KEY) {
-    return buildFallbackWeather(lat, lng)
-  }
-
   try {
-    const response = await fetch(
-      `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OPENWEATHER_API_KEY}&units=metric`
-    )
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,wind_direction_10m,surface_pressure,visibility,weather_code&timezone=auto`
     
-    if (!response.ok) {
-      throw new Error('Weather API error')
-    }
-
-    const data = await response.json()
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    })
     
-    return {
-      humidity: data.main.humidity,
-      temperature: Math.round(data.main.temp),
-      windSpeed: Math.round(data.wind?.speed * 3.6 || 0), // Convert m/s to km/h
-      windDirection: data.wind?.deg || 0,
-      pressure: data.main.pressure,
-      visibility: (data.visibility || 10000) / 1000, // Convert to km
-      description: data.weather[0]?.description || 'Unknown',
+    if (response.ok) {
+      const data = await response.json()
+      
+      if (data?.current) {
+        const current = data.current
+        
+        if (
+          typeof current.temperature_2m === 'number' &&
+          typeof current.relative_humidity_2m === 'number' &&
+          typeof current.wind_speed_10m === 'number' &&
+          typeof current.surface_pressure === 'number'
+        ) {
+          return {
+            humidity: Math.round(current.relative_humidity_2m),
+            temperature: Math.round(current.temperature_2m),
+            windSpeed: Math.round(current.wind_speed_10m),
+            windDirection: Math.round(current.wind_direction_10m || 0),
+            pressure: Math.round(current.surface_pressure),
+            visibility: current.visibility ? Math.round((current.visibility / 1000) * 10) / 10 : undefined,
+            description: getWeatherDescription(current.weather_code || 0),
+          }
+        }
+      }
     }
-  } catch (error) {
-    console.error('Error fetching weather:', error)
-    return buildFallbackWeather(lat, lng)
+  } catch (apiError) {
+    console.error('Open-Meteo API error:', apiError);
   }
+
+  // Fallback to OpenWeather if available
+  if (OPENWEATHER_API_KEY) {
+    try {
+      const response = await fetch(
+        `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OPENWEATHER_API_KEY}&units=metric`
+      )
+      
+      if (response.ok) {
+        const data = await response.json()
+        return {
+          humidity: data.main.humidity,
+          temperature: Math.round(data.main.temp),
+          windSpeed: Math.round(data.wind?.speed * 3.6 || 0),
+          windDirection: data.wind?.deg || 0,
+          pressure: data.main.pressure,
+          visibility: (data.visibility || 10000) / 1000,
+          description: data.weather[0]?.description || 'Unknown',
+        }
+      }
+    } catch (fallbackError) {
+      console.error('OpenWeather fallback error:', fallbackError);
+    }
+  }
+  
+  return buildFallbackWeather(lat, lng)
 }
 
+// Fetch fire data from APIs
 export async function fetchFireData(lat: number, lng: number): Promise<FireData> {
   try {
     const response = await fetch(
@@ -224,20 +295,3 @@ export async function fetchFireData(lat: number, lng: number): Promise<FireData>
   }
 }
 
-export async function fetchAllInsights(location: LocationData) {
-  const [weather, fire] = await Promise.all([
-    fetchWeatherData(location.lat, location.lng),
-    fetchFireData(location.lat, location.lng),
-  ])
-
-  // Generate AI insights using Gemini
-  const aiData = await generateInsights(location, weather, fire)
-
-  return {
-    location,
-    weather,
-    fire,
-    recommendations: aiData.recommendations,
-    aiInsights: aiData.aiInsights,
-  }
-}
