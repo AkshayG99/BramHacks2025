@@ -86,7 +86,18 @@ export const POST = async (request: NextRequest) => {
       hasAIInsights: !!aiData.aiInsights,
       aiRiskScore: aiData.aiRiskScore,
       aiRiskLevel: aiData.aiRiskLevel,
+      baseRiskScore: fire.riskScore,
+      baseRiskLevel: fire.riskLevel,
+      scoreDifference: aiData.aiRiskScore ? (aiData.aiRiskScore - fire.riskScore) : 'N/A',
     })
+
+    // Warn if AI didn't provide risk score
+    if (aiData.aiRiskScore === undefined) {
+      console.warn('⚠️ AI did not return a risk score - using base score')
+    }
+    if (aiData.aiRiskLevel === undefined) {
+      console.warn('⚠️ AI did not return a risk level - using base level')
+    }
 
     const insights: InsightsData = {
       location,
