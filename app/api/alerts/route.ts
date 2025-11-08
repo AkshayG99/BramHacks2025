@@ -8,7 +8,8 @@ const DEFAULT_TO =
 const getTwilioClient = () => {
   const accountSid =
     process.env.TWILIO_ACCOUNT_SID
-  const authToken = process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_AUTH_TOKEN_FALLBACK || ''
+  const authToken =
+    process.env.TWILIO_AUTH_TOKEN || process.env.TWILIO_AUTH_TOKEN_FALLBACK || ''
 
   if (!accountSid || !authToken) {
     throw new Error('Missing Twilio account SID or auth token')
@@ -52,19 +53,17 @@ export const POST = async (request: NextRequest) => {
     const summary =
       message ||
       [
-        '🔥 Forest Fire Alert!',
-        locationName ? `📍 ${locationName}` : undefined,
-        coordinates ? `(${coordinates.lat.toFixed(4)}, ${coordinates.lng.toFixed(4)})` : undefined,
+        '🔥 Forest Fire Alert',
+        locationName ? `Location: ${locationName}` : undefined,
         riskLevel && riskScore !== undefined
-          ? `⚠️ Risk: ${riskLevel.toUpperCase()} (${riskScore}/100)`
+          ? `Risk: ${String(riskLevel).toUpperCase()} (${riskScore}/100)`
           : undefined,
-        'View details → Dashboard'
+        'Tap for details in the dashboard.',
       ]
         .filter(Boolean)
         .join('\n')
 
     const client = getTwilioClient()
-
     const result = await client.messages.create({
       body: summary,
       messagingServiceSid,

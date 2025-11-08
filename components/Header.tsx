@@ -192,6 +192,10 @@ export default function Header({
   const [briefingTimestamp, setBriefingTimestamp] = useState<string>('—')
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(false)
   const [analysisContentHeight, setAnalysisContentHeight] = useState(0)
+  const [alertFeedback, setAlertFeedback] = useState<{
+    status: 'idle' | 'sending' | 'success' | 'error'
+    message?: string
+  }>({ status: 'idle' })
 
   const searchCardRef = useRef<HTMLFormElement | null>(null)
   const analysisContentRef = useRef<HTMLDivElement | null>(null)
@@ -363,6 +367,15 @@ export default function Header({
     recommendationList.length,
   ])
 
+  useEffect(() => {
+    setAlertFeedback({ status: 'idle' })
+  }, [
+    analysisLocation?.lat,
+    analysisLocation?.lng,
+    insights?.fire.riskLevel,
+    insights?.fire.riskScore,
+  ])
+
   const handleSearch = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!searchQuery.trim()) return
@@ -401,6 +414,42 @@ export default function Header({
       }
       return nextState
     })
+  }
+
+  const handleSendManualAlert = async () => {
+    if (!analysisLocation || !insights) return
+    setAlertFeedback({ status: 'sending' })
+    try {
+      const response = await fetch('/api/alerts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          locationName: analysisLabel,
+          coordinates: {
+            lat: analysisLocation.lat,
+            lng: analysisLocation.lng,
+          },
+          riskLevel: insights.fire.riskLevel,
+          riskScore: insights.aiRiskScore ?? insights.fire.riskScore,
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || 'Unable to send alert')
+      }
+
+      await response.json()
+      setAlertFeedback({
+        status: 'success',
+        message: 'Alert sent',
+      })
+    } catch (error: any) {
+      setAlertFeedback({
+        status: 'error',
+        message: error?.message || 'Failed to send alert',
+      })
+    }
   }
 
   const getRiskChipStyles = (level?: FireData['riskLevel']) => {
@@ -637,6 +686,45 @@ export default function Header({
                             Last recorded burn {insights.fire.lastFireDate}
                           </p>
                         )}
+                        <div className="mt-4 flex flex-wrap items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={handleSendManualAlert}
+                            disabled={
+                              !analysisLocation ||
+                              !insights ||
+                              alertFeedback.status === 'sending'
+                            }
+                            className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-rose-500 to-orange-500 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-rose-200 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {alertFeedback.status === 'sending' ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-white" />
+                            ) : (
+                              <Sparkles className="h-4 w-4" />
+                            )}
+                            Send text alert
+                          </button>
+                          <div className="text-xs font-medium" aria-live="polite">
+                            {alertFeedback.status === 'success' && (
+                              <span className="text-emerald-600">
+                                {alertFeedback.message || 'Alert sent'}
+                              </span>
+                            )}
+                            {alertFeedback.status === 'error' && (
+                              <span className="text-rose-600">
+                                {alertFeedback.message || 'Unable to send alert'}
+                              </span>
+                            )}
+                            {alertFeedback.status === 'sending' && (
+                              <span className="text-apple-dark/70">Sending alert…</span>
+                            )}
+                            {alertFeedback.status === 'idle' && (
+                              <span className="text-apple-dark/50">
+                                Tap to notify your emergency contact.
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       {/* Earth Engine Satellite Data Section */}

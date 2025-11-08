@@ -9,6 +9,7 @@ A beautiful, Apple-inspired web application for analyzing forest fire risks and 
 - 🌡️ **Weather Insights** - Humidity, temperature, wind speed, and visibility
 - 🎨 **Elegant UI** - Apple-inspired design with glassmorphism effects
 - ⚡ **Smooth Animations** - Framer Motion powered transitions
+- 📱 **Manual SMS Alerts** - Send a text warning when you detect nearby fires
 
 ## Setup
 
@@ -28,6 +29,8 @@ A beautiful, Apple-inspired web application for analyzing forest fire risks and 
    ```
    
    **Note:** You can also use `NEXT_PUBLIC_GEMINI_API_KEY` if you prefer, but `GEMINI_API_KEY` is more secure as it's only accessible server-side.
+   
+   **Note:** SMS alerts require the Twilio variables above—without them, the manual “Send text alert” button will respond with an error.
    
    **Note:** The app works without API keys! It uses:
    - **Leaflet + OpenStreetMap** (free, no API key needed) for maps
@@ -81,4 +84,3 @@ This application features an **Apple-inspired UI** with:
 - Add your Gemini API key for AI-powered insights (completely optional)
 - All data uses intelligent mock generation based on location
 - The app gracefully handles missing API keys with fallback data
-
