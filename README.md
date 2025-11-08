@@ -21,6 +21,10 @@ A beautiful, Apple-inspired web application for analyzing forest fire risks and 
    Create a `.env.local` file in the root directory:
    ```env
    GEMINI_API_KEY=your_gemini_api_key_here
+   TWILIO_ACCOUNT_SID=
+   TWILIO_AUTH_TOKEN=your_twilio_auth_token
+   TWILIO_MESSAGING_SERVICE_SID=
+   ALERT_DEFAULT_PHONE=
    ```
    
    **Note:** You can also use `NEXT_PUBLIC_GEMINI_API_KEY` if you prefer, but `GEMINI_API_KEY` is more secure as it's only accessible server-side.
