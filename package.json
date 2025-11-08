@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@google/earthengine": "^1.6.15",
     "@google/generative-ai": "^0.2.1",
     "@openai/codex": "^0.55.0",
     "framer-motion": "^10.16.16",

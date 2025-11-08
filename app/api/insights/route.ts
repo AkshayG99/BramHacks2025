@@ -2,6 +2,15 @@ import { InsightsData, LocationData } from "@/types";
 import { NextRequest, NextResponse } from 'next/server'
 import { generateInsights } from '@/lib/gemini'
 import { fetchWeatherData, fetchFireData } from '../utils'
+import { getEarthEngineData, initializeEarthEngine } from '@/lib/earth-engine'
+
+// Initialize Earth Engine on first load
+let eeInitialized = false;
+if (!eeInitialized) {
+  initializeEarthEngine().then(success => {
+    eeInitialized = success;
+  });
+}
 
 export const POST = async (request: NextRequest) => {
   try {
@@ -38,10 +47,11 @@ export const POST = async (request: NextRequest) => {
       coordinates: `(${location.lat}, ${location.lng})`,
     });
 
-    // Fetch weather and fire data in parallel (direct function calls - faster!)
-    const [weather, fire] = await Promise.all([
+    // Fetch weather, fire, and Earth Engine data in parallel
+    const [weather, fire, earthData] = await Promise.all([
       fetchWeatherData(latNum, lngNum),
       fetchFireData(latNum, lngNum),
+      getEarthEngineData(latNum, lngNum),
     ])
 
     console.log('📈 API: Weather data received:', {
@@ -60,8 +70,16 @@ export const POST = async (request: NextRequest) => {
       lastFireDate: fire.lastFireDate || 'None',
     })
 
-    // Generate AI insights using Gemini
-    const aiData = await generateInsights(location, weather, fire)
+    console.log('🌍 API: Earth Engine data received:', {
+      vegetation: `NDVI: ${earthData.ndvi.toFixed(3)}, EVI: ${earthData.evi.toFixed(3)}`,
+      soilMoisture: `${earthData.soilMoisture.toFixed(1)}%`,
+      landSurfaceTemp: `${earthData.landSurfaceTemp.toFixed(1)}°C`,
+      burnedArea: earthData.burnedArea,
+      drought: `${(earthData.drought * 100).toFixed(0)}%`,
+    })
+
+    // Generate AI insights using Gemini with Earth Engine data
+    const aiData = await generateInsights(location, weather, fire, earthData)
 
     console.log('🤖 API: AI insights generated:', {
       recommendationsCount: aiData.recommendations?.length || 0,
@@ -74,6 +92,7 @@ export const POST = async (request: NextRequest) => {
       location,
       weather,
       fire,
+      earthData,
       recommendations: aiData.recommendations,
       aiInsights: aiData.aiInsights,
       aiRiskScore: aiData.aiRiskScore,
