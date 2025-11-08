@@ -4,8 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import Header from '@/components/Header'
 import Landing from '@/components/Landing'
-import { fetchAllInsights } from '@/lib/api'
-import { LocationData, WeatherData, FireData } from '@/types'
+import { LocationData, WeatherData, FireData, InsightsData } from '@/types'
 
 const HOME_LOCATION: LocationData = {
   lat: 43.7315,
@@ -44,6 +43,12 @@ export default function Home() {
         lng,
         name: name || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
       }
+      console.log('📍 Location Selected:', {
+        latitude: locationData.lat,
+        longitude: locationData.lng,
+        name: locationData.name,
+        coordinates: `(${locationData.lat}, ${locationData.lng})`,
+      })
       setSelectedLocation(locationData)
     } catch (error) {
       console.error('Error fetching location data:', error)
@@ -63,9 +68,55 @@ export default function Home() {
     setIsInsightsLoading(true)
     setInsightsError(null)
 
-    fetchAllInsights(selectedLocation)
-      .then((data) => {
+    const locationName = selectedLocation.name || `${selectedLocation.lat}, ${selectedLocation.lng}`
+    console.log(`🌐 [loading: ${locationName}] Fetching insights...`)
+
+    fetch('/api/insights', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        lat: selectedLocation.lat,
+        lng: selectedLocation.lng,
+        name: selectedLocation.name,
+      }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(errorData.error || `HTTP ${response.status}`)
+        }
+        return response.json()
+      })
+      .then((data: InsightsData) => {
         if (isCancelled) return
+        
+        console.log('✅ Insights Data Received:', {
+          location: {
+            name: data.location.name,
+            coordinates: `(${data.location.lat}, ${data.location.lng})`,
+          },
+          weather: {
+            temperature: `${data.weather.temperature}°C`,
+            humidity: `${data.weather.humidity}%`,
+            windSpeed: `${data.weather.windSpeed} km/h`,
+            windDirection: `${data.weather.windDirection}°`,
+            pressure: `${data.weather.pressure} hPa`,
+            visibility: data.weather.visibility ? `${data.weather.visibility} km` : 'N/A',
+            description: data.weather.description || 'N/A',
+          },
+          fire: {
+            riskLevel: data.fire.riskLevel,
+            riskScore: `${data.fire.riskScore}/100`,
+            fireCount: data.fire.fireCount,
+            historicalFires: data.fire.historicalFires,
+            lastFireDate: data.fire.lastFireDate || 'None',
+          },
+          recommendations: data.recommendations?.length || 0,
+          hasAIInsights: !!data.aiInsights,
+        })
+        
         setInsights({
           weather: data.weather,
           fire: data.fire,
@@ -97,12 +148,19 @@ export default function Home() {
 
       setIsSearchLoading(true)
       try {
+        console.log('🔎 Searching for location:', { query: trimmedQuery })
         const response = await fetch(`/api/geocode?q=${encodeURIComponent(trimmedQuery)}`)
         const data = await response.json()
 
         if (!response.ok) {
           throw new Error(data?.error || 'Unable to find that location')
         }
+
+        console.log('✅ Location found:', {
+          name: data.name,
+          lat: data.lat,
+          lng: data.lng,
+        })
 
         await handleLocationSelect(Number(data.lat), Number(data.lng), data.name)
       } catch (error) {

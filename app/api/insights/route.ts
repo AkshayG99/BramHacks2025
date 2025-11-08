@@ -1,0 +1,109 @@
+import { InsightsData, LocationData } from "@/types";
+import { NextRequest, NextResponse } from 'next/server'
+import { generateInsights } from '@/lib/gemini'
+import { fetchWeatherData, fetchFireData } from '../utils'
+
+export const POST = async (request: NextRequest) => {
+  try {
+    const body = await request.json();
+    const { lat, lng, name } = body;
+
+    if (!lat || !lng) {
+      return NextResponse.json(
+        { error: 'Missing required parameters: lat and lng' },
+        { status: 400 }
+      );
+    }
+
+    const latNum = parseFloat(lat);
+    const lngNum = parseFloat(lng);
+
+    if (isNaN(latNum) || isNaN(lngNum)) {
+      return NextResponse.json(
+        { error: 'Invalid parameters: lat and lng must be valid numbers' },
+        { status: 400 }
+      );
+    }
+
+    const location: LocationData = {
+      lat: latNum,
+      lng: lngNum,
+      name: name || undefined,
+    };
+
+    console.log('🔍 API: Fetching insights for location:', {
+      latitude: location.lat,
+      longitude: location.lng,
+      name: location.name || 'Unnamed',
+      coordinates: `(${location.lat}, ${location.lng})`,
+    });
+
+    // Fetch weather and fire data in parallel (direct function calls - faster!)
+    const [weather, fire] = await Promise.all([
+      fetchWeatherData(latNum, lngNum),
+      fetchFireData(latNum, lngNum),
+    ])
+
+    console.log('📈 API: Weather data received:', {
+      temperature: `${weather.temperature}°C`,
+      humidity: `${weather.humidity}%`,
+      windSpeed: `${weather.windSpeed} km/h`,
+      pressure: `${weather.pressure} hPa`,
+      description: weather.description,
+    })
+
+    console.log('🔥 API: Fire data received:', {
+      riskLevel: fire.riskLevel,
+      riskScore: fire.riskScore,
+      fireCount: fire.fireCount,
+      historicalFires: fire.historicalFires,
+      lastFireDate: fire.lastFireDate || 'None',
+    })
+
+    // Generate AI insights using Gemini
+    const aiData = await generateInsights(location, weather, fire)
+
+    console.log('🤖 API: AI insights generated:', {
+      recommendationsCount: aiData.recommendations?.length || 0,
+      hasAIInsights: !!aiData.aiInsights,
+      aiRiskScore: aiData.aiRiskScore,
+      aiRiskLevel: aiData.aiRiskLevel,
+    })
+
+    const insights: InsightsData = {
+      location,
+      weather,
+      fire,
+      recommendations: aiData.recommendations,
+      aiInsights: aiData.aiInsights,
+      aiRiskScore: aiData.aiRiskScore,
+      aiRiskLevel: aiData.aiRiskLevel,
+    }
+    
+    console.log('📊 API: Insights data prepared:', {
+      location: insights.location,
+      weather: {
+        temp: `${insights.weather.temperature}°C`,
+        humidity: `${insights.weather.humidity}%`,
+        wind: `${insights.weather.windSpeed} km/h`,
+        pressure: `${insights.weather.pressure} hPa`,
+      },
+      fire: {
+        riskLevel: insights.fire.riskLevel,
+        riskScore: insights.fire.riskScore,
+        fireCount: insights.fire.fireCount,
+      },
+      hasRecommendations: !!insights.recommendations?.length,
+      hasAIInsights: !!insights.aiInsights,
+    });
+    
+    return NextResponse.json(insights, { status: 200 });
+  } catch (error) {
+    console.error('Error fetching insights:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch insights' },
+      { status: 500 }
+    );
+  }
+}
+
