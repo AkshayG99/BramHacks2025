@@ -31,6 +31,8 @@ interface HeaderProps {
     fire: FireData
     recommendations?: string[]
     aiInsights?: string
+    aiRiskScore?: number
+    aiRiskLevel?: string
   } | null
   isInsightsLoading: boolean
   insightsError?: string | null
@@ -73,12 +75,6 @@ const formatBearing = (degrees: number) => {
   return `${compassLabels[index < 0 ? 0 : index]} • ${degrees.toFixed(0)}°`
 }
 
-const normalized = (lat: number, lng: number, offset: number) => {
-  const seed = (lat + 90) * 1000 + (lng + 180) * 1000 + offset
-  const value = Math.sin(seed) * 10000
-  return value - Math.floor(value)
-}
-
 const formatLocationName = (name?: string) => {
   if (!name) return 'Unknown location'
   const parts = name
@@ -91,20 +87,64 @@ const formatLocationName = (name?: string) => {
   return parts[0] || 'Unknown location'
 }
 
-const deriveStats = (location: LocationData): StatBlock[] => {
-  const { lat, lng } = location
-  const wind = Math.round(8 + normalized(lat, lng, 1) * 25)
-  const windDelta = Math.round((normalized(lat, lng, 2) - 0.5) * 6)
-  const humidity = Math.round(18 + normalized(lat, lng, 3) * 60)
-  const humidityDelta = Math.round((normalized(lat, lng, 4) - 0.45) * 10)
-  const containment = Math.round(28 + normalized(lat, lng, 5) * 60)
-  const containmentDelta = Math.round((normalized(lat, lng, 6) - 0.4) * 8)
-  const windDirection = Math.round(normalized(lat, lng, 7) * 360)
+// Convert km/h to mph
+const kmhToMph = (kmh: number) => Math.round(kmh * 0.621371)
+
+// Convert real API data to StatBlock format
+const deriveStatsFromAPI = (
+  weather: WeatherData | null,
+  fire: FireData | null,
+  isLoading: boolean
+): StatBlock[] => {
+  if (isLoading || !weather || !fire) {
+    return [
+      {
+        label: 'Wind speed',
+        value: '—',
+        hint: 'Loading...',
+        change: '—',
+        changeColor: 'text-gray-500',
+        icon: Wind,
+      },
+      {
+        label: 'Humidity',
+        value: '—',
+        hint: 'Loading...',
+        change: '—',
+        changeColor: 'text-gray-500',
+        icon: Droplet,
+      },
+      {
+        label: 'Containment',
+        value: '—',
+        hint: 'Loading...',
+        change: '—',
+        changeColor: 'text-gray-500',
+        icon: Gauge,
+      },
+    ]
+  }
+
+  // Convert wind speed from km/h to mph
+  const windMph = kmhToMph(weather.windSpeed)
+  const windDirection = weather.windDirection
+
+  // Use humidity directly
+  const humidity = weather.humidity
+
+  // Use fire risk score as containment (inverted - higher risk = lower containment)
+  const containment = Math.max(0, 100 - fire.riskScore)
+
+  // Calculate deltas (we'll use 0 for now since we don't have historical data)
+  // In a real app, you'd compare with previous values
+  const windDelta = 0
+  const humidityDelta = 0
+  const containmentDelta = 0
 
   return [
     {
       label: 'Wind speed',
-      value: `${wind} mph`,
+      value: `${windMph} mph`,
       hint: `Flowing ${formatBearing(windDirection)}`,
       change: `${windDelta >= 0 ? '+' : ''}${windDelta} mph`,
       changeColor: windDelta >= 0 ? 'text-emerald-600' : 'text-rose-500',
@@ -121,7 +161,11 @@ const deriveStats = (location: LocationData): StatBlock[] => {
     {
       label: 'Containment',
       value: `${containment}%`,
-      hint: 'Incident data refreshed moments ago',
+      hint: fire.riskLevel === 'extreme' 
+        ? 'Critical fire risk - immediate action required'
+        : fire.riskLevel === 'high'
+        ? 'High fire risk - stay alert'
+        : 'Incident data refreshed moments ago',
       change: `${containmentDelta >= 0 ? '+' : ''}${containmentDelta}%`,
       changeColor: containmentDelta >= 0 ? 'text-emerald-600' : 'text-amber-600',
       icon: Gauge,
@@ -150,7 +194,78 @@ export default function Header({
 
   const searchCardRef = useRef<HTMLFormElement | null>(null)
   const analysisContentRef = useRef<HTMLDivElement | null>(null)
-  const derivedStats = useMemo(() => deriveStats(selectedLocation), [selectedLocation])
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [statsData, setStatsData] = useState<{ weather: WeatherData | null; fire: FireData | null }>({
+    weather: null,
+    fire: null,
+  })
+
+  // Fetch stats data when selectedLocation changes
+  useEffect(() => {
+    if (!selectedLocation) {
+      setStatsData({ weather: null, fire: null })
+      return
+    }
+
+    let isCancelled = false
+    setStatsLoading(true)
+
+    // Use insights if available, otherwise fetch from API
+    if (insights && !isInsightsLoading) {
+      setStatsData({
+        weather: insights.weather,
+        fire: insights.fire,
+      })
+      setStatsLoading(false)
+      return
+    }
+
+    // Fetch from API if insights not available
+    Promise.all([
+      fetch('/api/weatherData', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: selectedLocation.lat, lng: selectedLocation.lng }),
+      })
+        .then(res => res.json())
+        .then(data => ({ weather: data })),
+      fetch('/api/fireData', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat: selectedLocation.lat, lng: selectedLocation.lng }),
+      })
+        .then(res => res.json())
+        .then(data => ({ fire: data })),
+    ])
+      .then(([weatherResult, fireResult]) => {
+        if (!isCancelled) {
+          setStatsData({
+            weather: weatherResult.weather,
+            fire: fireResult.fire,
+          })
+        }
+      })
+      .catch((error) => {
+        console.error('Error fetching stats:', error)
+        if (!isCancelled) {
+          setStatsData({ weather: null, fire: null })
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setStatsLoading(false)
+        }
+      })
+
+    return () => {
+      isCancelled = true
+    }
+  }, [selectedLocation, insights, isInsightsLoading])
+
+  const derivedStats = useMemo(
+    () => deriveStatsFromAPI(statsData.weather, statsData.fire, statsLoading),
+    [statsData.weather, statsData.fire, statsLoading]
+  )
   const recommendationList = insights?.recommendations?.slice(0, 3) ?? []
 
   const locationLabel = formatLocationName(selectedLocation?.name)
@@ -499,16 +614,21 @@ export default function Header({
                                 Fire risk
                               </p>
                               <p className="text-lg font-semibold text-apple-dark">
-                                {insights.fire.riskScore} / 100
+                                {insights.aiRiskScore !== undefined ? insights.aiRiskScore : insights.fire.riskScore} / 100
                               </p>
+                              {insights.aiRiskScore !== undefined && (
+                                <p className="text-[10px] text-apple-dark/50">
+                                  AI-calculated (Base: {insights.fire.riskScore})
+                                </p>
+                              )}
                             </div>
                           </div>
                           <span
                             className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getRiskChipStyles(
-                              insights.fire.riskLevel
+                              (insights.aiRiskLevel as any) || insights.fire.riskLevel
                             )}`}
                           >
-                            {insights.fire.riskLevel}
+                            {insights.aiRiskLevel || insights.fire.riskLevel}
                           </span>
                         </div>
                         {insights.fire.lastFireDate && (

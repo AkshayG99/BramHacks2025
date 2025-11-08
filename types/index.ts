@@ -10,8 +10,8 @@ export interface WeatherData {
   windSpeed: number
   windDirection: number
   pressure: number
-  visibility: number
-  description: string
+  visibility?: number
+  description?: string
 }
 
 export interface FireData {
@@ -33,5 +33,7 @@ export interface InsightsData {
   elevation?: number
   recommendations?: string[]
   aiInsights?: string
+  aiRiskScore?: number
+  aiRiskLevel?: string
 }
 
