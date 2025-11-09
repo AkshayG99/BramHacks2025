@@ -29,6 +29,16 @@ export async function POST(request: Request) {
         stdio: 'pipe'
       })
 
+      // Check if process was created successfully
+      if (!streamingProcess || !streamingProcess.pid) {
+        streamingProcess = null
+        return NextResponse.json({ 
+          success: false, 
+          message: 'Failed to start streaming server',
+          status: 'stopped'
+        }, { status: 500 })
+      }
+
       // Log output
       streamingProcess.stdout?.on('data', (data) => {
         console.log(`[Stream Server]: ${data}`)
@@ -36,6 +46,11 @@ export async function POST(request: Request) {
 
       streamingProcess.stderr?.on('data', (data) => {
         console.error(`[Stream Server Error]: ${data}`)
+      })
+
+      streamingProcess.on('error', (error) => {
+        console.error(`[Stream Server Process Error]:`, error)
+        streamingProcess = null
       })
 
       streamingProcess.on('close', (code) => {
@@ -50,7 +65,7 @@ export async function POST(request: Request) {
         success: true, 
         message: 'Streaming server started',
         status: 'running',
-        pid: streamingProcess.pid
+        pid: streamingProcess?.pid || null
       })
 
     } else if (action === 'stop') {
