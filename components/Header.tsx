@@ -8,7 +8,7 @@ import type {
   EarthEngineData,
   FirmsDetection,
 } from '@/types'
-import { Flame, Gauge, MapPin, Loader2 } from 'lucide-react'
+import { Flame, Gauge, MapPin, Loader2, CloudRain, Wind, Droplets, Thermometer, Lightbulb, AlertTriangle } from 'lucide-react'
 
 interface HeaderProps {
   onSearchLocation: (query: string) => Promise<void>
@@ -349,6 +349,146 @@ export default function Header({
               </p>
             </div>
           </div>
+
+          {/* Weather Conditions */}
+          {insights?.weather && (
+            <div className="mt-4 rounded-2xl border border-blue-100/70 bg-blue-50/60 p-4">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-blue-500 mb-2">Current Conditions</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="flex items-center gap-2">
+                  <Thermometer className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <p className="text-xs text-blue-700/60">Temperature</p>
+                    <p className="text-sm font-semibold text-blue-700">{insights.weather.temperature}°C</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Droplets className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <p className="text-xs text-blue-700/60">Humidity</p>
+                    <p className="text-sm font-semibold text-blue-700">{insights.weather.humidity}%</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Wind className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <p className="text-xs text-blue-700/60">Wind Speed</p>
+                    <p className="text-sm font-semibold text-blue-700">{insights.weather.windSpeed} km/h</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Gauge className="h-4 w-4 text-blue-600" />
+                  <div>
+                    <p className="text-xs text-blue-700/60">Pressure</p>
+                    <p className="text-sm font-semibold text-blue-700">{insights.weather.pressure} hPa</p>
+                  </div>
+                </div>
+              </div>
+              {insights.weather.description && (
+                <p className="mt-2 text-xs text-blue-700/70 capitalize">{insights.weather.description}</p>
+              )}
+            </div>
+          )}
+
+          {/* AI Insights */}
+          {insights?.aiInsights && (
+            <div className={`mt-4 rounded-2xl border p-4 ${
+              insights.aiInsights.includes('Unable to generate') || 
+              insights.aiInsights.includes('unavailable') ||
+              insights.aiInsights.includes('quota exceeded')
+                ? 'border-slate-100/70 bg-slate-50/60'
+                : 'border-purple-100/70 bg-purple-50/60'
+            }`}>
+              <div className="flex items-start gap-2">
+                <Lightbulb className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
+                  insights.aiInsights.includes('Unable to generate') || 
+                  insights.aiInsights.includes('unavailable') ||
+                  insights.aiInsights.includes('quota exceeded')
+                    ? 'text-slate-600'
+                    : 'text-purple-600'
+                }`} />
+                <div className="flex-1">
+                  <p className={`text-[10px] uppercase tracking-[0.3em] mb-2 ${
+                    insights.aiInsights.includes('Unable to generate') || 
+                    insights.aiInsights.includes('unavailable') ||
+                    insights.aiInsights.includes('quota exceeded')
+                      ? 'text-slate-500'
+                      : 'text-purple-500'
+                  }`}>
+                    {insights.aiInsights.includes('Unable to generate') || 
+                     insights.aiInsights.includes('unavailable') ||
+                     insights.aiInsights.includes('quota exceeded')
+                      ? 'Risk Analysis'
+                      : 'AI Analysis'}
+                  </p>
+                  <p className={`text-sm leading-relaxed whitespace-pre-wrap ${
+                    insights.aiInsights.includes('Unable to generate') || 
+                    insights.aiInsights.includes('unavailable') ||
+                    insights.aiInsights.includes('quota exceeded')
+                      ? 'text-slate-700/80'
+                      : 'text-purple-900/80'
+                  }`}>
+                    {insights.aiInsights}
+                  </p>
+                  {insights.aiRiskScore !== undefined && (
+                    <div className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${
+                      insights.aiInsights.includes('Unable to generate') || 
+                      insights.aiInsights.includes('unavailable') ||
+                      insights.aiInsights.includes('quota exceeded')
+                        ? 'bg-slate-100/80 text-slate-700'
+                        : 'bg-purple-100/80 text-purple-700'
+                    }`}>
+                      <Gauge className="h-3 w-3" />
+                      {insights.aiRiskScore !== insights.fire?.riskScore 
+                        ? `Enhanced Risk Score: ${insights.aiRiskScore}/100`
+                        : `Risk Score: ${insights.aiRiskScore}/100`}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Recommendations */}
+          {insights?.recommendations && insights.recommendations.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-amber-100/70 bg-amber-50/60 p-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                <div className="flex-1">
+                  <p className="text-[10px] uppercase tracking-[0.3em] text-amber-500 mb-2">Safety Recommendations</p>
+                  <ul className="space-y-1.5">
+                    {insights.recommendations.map((rec, index) => (
+                      <li key={index} className="flex items-start gap-2 text-sm text-amber-900/80">
+                        <span className="text-amber-600 mt-0.5">•</span>
+                        <span>{rec}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Fire Statistics Summary */}
+          {insights?.fire && (
+            <div className="mt-4 rounded-2xl border border-slate-100/70 bg-slate-50/60 p-4">
+              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 mb-2">Fire Risk Analysis</p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                <div>
+                  <p className="text-xs text-slate-600">Active Fires</p>
+                  <p className="font-semibold text-slate-800">{insights.fire.fireCount || 0}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-600">Risk Level</p>
+                  <p className="font-semibold text-slate-800 capitalize">{insights.fire.riskLevel || 'Unknown'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-600">Risk Score</p>
+                  <p className="font-semibold text-slate-800">{insights.fire.riskScore || 0}/100</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {(insightsError || firmsError) && (
             <div className="mt-3 text-xs font-semibold text-rose-500">
