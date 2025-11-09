@@ -82,13 +82,13 @@ export async function generateInsights(
     const genAI = new GoogleGenerativeAI(GEMINI_API_KEY)
     
     // Try different model names in order of preference
+    // Using Gemini 2.0 Flash Lite - most efficient for quick responses
     const modelNames = [
-      'gemini-2.5-flash',
-      'gemini-1.5-flash',
-      'gemini-1.5-pro',
-      'gemini-pro',
-      'gemini-1.5-flash-latest',
-      'gemini-1.5-pro-latest',
+      'gemini-2.0-flash-lite',  // Latest Gemini 2.0 Flash Lite (fastest, most efficient)
+      'gemini-2.0-flash-exp',   // Gemini 2.0 Flash experimental fallback
+      'gemini-1.5-flash',       // Stable fallback - fast and efficient
+      'gemini-1.5-pro',         // More powerful, slower
+      'gemini-pro',             // Legacy fallback
     ]
 
     const earthDataSection = earthData ? `
@@ -318,9 +318,20 @@ NOW PROVIDE YOUR RESPONSE AS VALID JSON:`
     const smartScore = calculateSmartRiskScore(weather, fire, earthData)
     const smartLevel = getRiskLevelFromScore(smartScore)
     
+    // Provide more user-friendly error messages
+    let errorMessage = 'Using calculated risk assessment based on weather and fire data.'
+    
+    if (error?.message?.includes('429') || error?.message?.includes('quota')) {
+      errorMessage = 'Gemini API quota exceeded. Using calculated risk assessment. Try again later.'
+    } else if (error?.message?.includes('404') || error?.message?.includes('not found')) {
+      errorMessage = 'Gemini API model unavailable. Using calculated risk assessment based on environmental data.'
+    } else if (error?.message?.includes('No available Gemini model')) {
+      errorMessage = 'Gemini API temporarily unavailable. Using calculated risk assessment with weather and satellite data.'
+    }
+    
     return {
       recommendations: generateDefaultRecommendations(weather, fire),
-      aiInsights: `Unable to generate AI insights: ${error?.message || 'Unknown error'}. Using calculated risk assessment.`,
+      aiInsights: errorMessage,
       aiRiskScore: smartScore,
       aiRiskLevel: smartLevel,
     }

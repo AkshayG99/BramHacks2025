@@ -1,5 +1,8 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
+import { Video } from 'lucide-react'
+
 interface LandingProps {
   onEnter: () => void
 }
@@ -23,6 +26,8 @@ const featureHighlights = [
 ]
 
 export default function Landing({ onEnter }: LandingProps) {
+  const router = useRouter()
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#04050a] via-[#0b1220] to-[#111827] text-white">
       <div className="relative mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-16">
@@ -35,12 +40,21 @@ export default function Landing({ onEnter }: LandingProps) {
           <p className="text-xs font-semibold uppercase tracking-[0.4em] text-white/60">
             BramFire Lab
           </p>
-          <button
-            onClick={onEnter}
-            className="hidden rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 transition hover:text-white md:inline-flex"
-          >
-            Enter Ops Center →
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => router.push('/live-fire-watch')}
+              className="inline-flex items-center gap-2 rounded-full border border-rose-500/30 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-400 transition hover:bg-rose-500/20"
+            >
+              <Video className="h-4 w-4" />
+              Live Detection
+            </button>
+            <button
+              onClick={onEnter}
+              className="hidden rounded-full border border-white/20 px-4 py-2 text-sm font-semibold text-white/80 transition hover:text-white md:inline-flex"
+            >
+              Enter Ops Center →
+            </button>
+          </div>
         </header>
 
         <section className="relative z-10 grid flex-1 gap-8 lg:grid-cols-2">
@@ -64,6 +78,13 @@ export default function Landing({ onEnter }: LandingProps) {
                 className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-rose-500 to-amber-400 px-6 py-3 text-base font-semibold text-white shadow-lg shadow-rose-500/30 transition hover:-translate-y-0.5"
               >
                 Enter live map
+              </button>
+              <button 
+                onClick={() => router.push('/live-fire-watch')}
+                className="inline-flex items-center gap-2 justify-center rounded-full border border-white/20 px-6 py-3 text-base font-semibold text-white/70 transition hover:text-white"
+              >
+                <Video className="h-4 w-4" />
+                Live Camera Detection
               </button>
               <button className="inline-flex items-center justify-center rounded-full border border-white/20 px-6 py-3 text-base font-semibold text-white/70 transition hover:text-white">
                 View demo briefing
