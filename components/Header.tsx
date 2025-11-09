@@ -467,44 +467,96 @@ export default function Header({
     }
   }
 
+  const normalizedAiRiskLevel =
+    typeof insights?.aiRiskLevel === 'string'
+      ? (['low', 'medium', 'high', 'extreme'].includes(
+          insights.aiRiskLevel.toLowerCase()
+        )
+          ? (insights.aiRiskLevel.toLowerCase() as FireData['riskLevel'])
+          : undefined)
+      : undefined
+  const activeRiskLevel =
+    normalizedAiRiskLevel ?? insights?.fire.riskLevel
+  const activeRiskScore =
+    insights?.aiRiskScore ?? insights?.fire.riskScore
+  const riskDescriptor = activeRiskLevel
+    ? `${activeRiskLevel.charAt(0).toUpperCase()}${activeRiskLevel.slice(1)}`
+    : 'Awaiting data'
+  const formattedRiskScore =
+    activeRiskScore !== undefined ? `${activeRiskScore}/100` : '—'
+
   return (
     <header className="pointer-events-none absolute inset-x-0 top-0 z-50 px-6 pt-6">
       <div className="pointer-events-auto mx-auto max-w-6xl">
-        <div className="rounded-[28px] border border-white/30 bg-gradient-to-r from-white/95 via-white/80 to-white/60 p-6 shadow-[0_25px_65px_rgba(15,23,42,0.15)] backdrop-blur-2xl">
-          <div className="flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 via-red-500 to-rose-500 shadow-lg shadow-orange-500/30">
-                <Flame className="h-5 w-5 text-white" />
+        <div className="rounded-[32px] border border-white/40 bg-gradient-to-br from-white/95 via-white/80 to-white/60 p-6 shadow-[0_25px_65px_rgba(15,23,42,0.15)] backdrop-blur-2xl">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center">
+            <div className="flex flex-1 flex-col gap-4">
+              <div className="flex items-center gap-4">
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 via-red-500 to-rose-500 shadow-lg shadow-orange-500/40">
+                  <Flame className="h-6 w-6 text-white" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.3em] text-apple-dark/60">
+                    BramFire Lab
+                  </p>
+                  <h1 className="text-2xl font-semibold tracking-tight text-apple-dark">
+                    Forest Fire Insights
+                  </h1>
+                  <p className="text-sm text-apple-dark/60">
+                    Precision telemetry & risk intelligence in realtime
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-apple-dark/60">
-                  BramFire Lab
-                </p>
-                <h1 className="text-2xl font-semibold tracking-tight text-apple-dark">
-                  Forest Fire Insights
-                </h1>
+
+              <div className="flex flex-wrap items-center gap-3 text-sm">
+                <div className="inline-flex items-center gap-3 rounded-2xl border border-rose-100/70 bg-rose-50/80 px-4 py-2 text-rose-700 shadow-inner shadow-white/60">
+                  <span className="flex h-2.5 w-2.5 animate-pulse rounded-full bg-rose-500" />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-rose-400">
+                      Tracking
+                    </p>
+                    <p className="font-semibold text-apple-dark">{locationLabel}</p>
+                  </div>
+                </div>
+
+                <div
+                  className={`inline-flex items-center gap-3 rounded-2xl px-4 py-2 text-sm font-semibold shadow-inner shadow-white/40 ${getRiskChipStyles(activeRiskLevel)}`}
+                >
+                  <Gauge className="h-4 w-4" />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] opacity-70">
+                      Risk posture
+                    </p>
+                    <p className="text-base">
+                      {riskDescriptor}
+                      <span className="ml-1 text-xs font-medium opacity-70">· {formattedRiskScore}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="inline-flex items-center gap-3 rounded-2xl border border-apple-dark/5 bg-white/70 px-4 py-2 text-apple-dark/70 shadow-inner shadow-white/60">
+                  <Sparkles className="h-4 w-4 text-rose-500" />
+                  <div>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-apple-dark/40">
+                      Live briefing
+                    </p>
+                    <p className="text-sm font-semibold text-apple-dark">
+                      Updated {briefingTimestamp}
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="flex flex-1 flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 rounded-full border border-rose-100 bg-rose-50/80 px-3 py-1 text-xs font-medium text-rose-600 shadow-inner shadow-white/40">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-rose-500" />
-                Tracking: {locationLabel}
-              </div>
-              <div className="text-sm text-apple-dark/60">
-                Live briefing <span className="font-semibold text-apple-dark">{briefingTimestamp}</span>
-              </div>
-            </div>
-
-            <div className="ml-auto flex items-center gap-3">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
               <div className="relative">
                 <button
                   type="button"
                   onClick={() => setIsSearchOpen((prev) => !prev)}
-                  className="inline-flex items-center gap-2 rounded-full border border-apple-dark/10 bg-white px-4 py-2 text-sm font-semibold text-apple-dark shadow-lg shadow-apple-dark/10 transition hover:-translate-y-0.5"
+                  className="inline-flex items-center gap-2 rounded-full border border-apple-dark/10 bg-white/90 px-4 py-2 text-sm font-semibold text-apple-dark shadow-lg shadow-apple-dark/10 transition hover:-translate-y-0.5"
                 >
                   <MapPin className="h-4 w-4 text-rose-500" />
-                  Where to search?
+                  Reposition search
                 </button>
 
                 {isSearchOpen && (
@@ -583,7 +635,7 @@ export default function Header({
               <button
                 type="button"
                 onClick={handleLiveBriefingClick}
-                className="inline-flex items-center gap-2 rounded-full bg-apple-dark px-4 py-2 text-sm font-semibold text-white shadow-lg shadow-apple-dark/30 transition hover:-translate-y-0.5"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-gradient-to-r from-rose-500 via-orange-500 to-amber-400 px-5 py-2 text-sm font-semibold text-white shadow-lg shadow-rose-500/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={!analysisLocation}
               >
                 <Sparkles className="h-4 w-4" />
