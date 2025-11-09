@@ -81,9 +81,13 @@ export const buildFallbackFire = (lat: number, lng: number): FireData => {
   const windImpact = seededValue(lat, lng, 11)
   const droughtFactor = seededValue(lat, lng, 12)
 
-  const riskScore = Math.round(
-    20 + vegetationStress * 35 + windImpact * 20 + droughtFactor * 25
-  )
+  // Softer baseline so random fallbacks do not look unnaturally critical
+  const blendedScore =
+    10 +
+    vegetationStress * 25 +
+    windImpact * 15 +
+    droughtFactor * 20
+  const riskScore = Math.round(blendedScore * 0.85)
 
   let riskLevel: 'low' | 'medium' | 'high' | 'extreme'
   if (riskScore < 35) riskLevel = 'low'
@@ -252,27 +256,29 @@ export async function fetchFireData(lat: number, lng: number): Promise<FireData>
       return new Date(current.date) > new Date(latest.date) ? current : latest
     }, nearbyEvents[0])
 
-    const proximityScore =
+    const proximityWeight = 35
+    const normalizedDistance =
       nearbyEvents.length > 0
         ? Math.max(
             0,
             1 - Math.min(nearbyEvents[0].distance, radiusKm) / radiusKm
-          ) * 50
+          )
+        : 0
+    const proximityScore = Math.pow(normalizedDistance, 0.85) * proximityWeight
+
+    const densityScore = Math.min(30, nearbyEvents.length * 6)
+
+    const daysSinceMostRecent = mostRecentEvent?.date
+      ? (Date.now() - new Date(mostRecentEvent.date).getTime()) /
+        (1000 * 60 * 60 * 24)
+      : null
+    const recencyScore =
+      daysSinceMostRecent !== null
+        ? Math.max(0, 20 - daysSinceMostRecent * 0.6)
         : 0
 
-    const densityScore = Math.min(50, nearbyEvents.length * 8)
-    const recencyScore = mostRecentEvent?.date
-      ? Math.max(
-          0,
-          30 -
-            (Date.now() - new Date(mostRecentEvent.date).getTime()) /
-              (1000 * 60 * 60 * 24)
-        )
-      : 0
-
-    const riskScore = Math.round(
-      Math.min(100, proximityScore + densityScore + recencyScore)
-    )
+    const combinedScore = (proximityScore + densityScore + recencyScore) * 0.85
+    const riskScore = Math.round(Math.min(100, combinedScore))
 
     let riskLevel: FireData['riskLevel']
     if (riskScore < 35) riskLevel = 'low'
@@ -294,4 +300,3 @@ export async function fetchFireData(lat: number, lng: number): Promise<FireData>
     return buildFallbackFire(lat, lng)
   }
 }
-

@@ -16,36 +16,40 @@ function calculateSmartRiskScore(
 ): number {
   let score = 0;
 
-  // Humidity factor (25%) - Lower is more dangerous
-  const humidityScore = Math.max(0, (100 - weather.humidity) * 0.25);
+  // Humidity factor (now 18%) - still penalizes very dry air but softens extremes
+  const humidityScore = Math.max(0, (100 - weather.humidity) * 0.18);
   score += humidityScore;
 
-  // Wind speed factor (20%) - Higher is more dangerous
-  const windScore = Math.min(weather.windSpeed * 2, 20);
+  // Wind speed factor (15%) - keeps high winds meaningful but less punishing overall
+  const windScore = Math.min(weather.windSpeed * 1.2, 15);
   score += windScore;
 
-  // Temperature factor (15%) - Higher is more dangerous
-  const tempScore = Math.min(weather.temperature * 0.5, 15);
+  // Temperature factor (12%) - focuses on above-average heat
+  const effectiveTemp = Math.max(0, weather.temperature - 5);
+  const tempScore = Math.min(effectiveTemp * 0.4, 12);
   score += tempScore;
 
   if (earthData) {
-    // Vegetation/Soil/Drought (25%)
-    const vegetationScore = (1 - earthData.ndvi) * 8; // Low NDVI = high risk
-    const soilScore = (100 - earthData.soilMoisture) * 0.08; // Low moisture = high risk
-    const droughtScore = earthData.drought * 9; // High drought = high risk
+    // Vegetation/Soil/Drought (softer 19% aggregate)
+    const vegetationScore = (1 - earthData.ndvi) * 6; // Low NDVI = high risk
+    const soilScore = (100 - earthData.soilMoisture) * 0.06; // Low moisture = high risk
+    const droughtScore = earthData.drought * 7; // High drought = high risk
     score += vegetationScore + soilScore + droughtScore;
 
-    // Historical fires (15%)
-    const fireHistoryScore = Math.min(fire.fireCount * 3, 15);
+    // Historical fires (12%)
+    const fireHistoryScore = Math.min(fire.fireCount * 2.5, 12);
     score += fireHistoryScore;
   } else {
-    // Without earth data, give more weight to historical fires (40%)
-    const fireHistoryScore = Math.min(fire.riskScore * 0.4, 40);
+    // Without earth data, still rely on historical fires but cap lower (25%)
+    const fireHistoryScore = Math.min(fire.riskScore * 0.25, 25);
     score += fireHistoryScore;
   }
 
+  // Global damping before bounding to keep scores trending lower
+  const dampenedScore = score * 0.9;
+
   // Ensure score is between 0 and 100
-  return Math.round(Math.min(Math.max(score, 0), 100));
+  return Math.round(Math.min(Math.max(dampenedScore, 0), 100));
 }
 
 // Helper function to get risk level from score
@@ -351,4 +355,3 @@ function generateDefaultRecommendations(weather: WeatherData, fire: FireData): s
 
   return recommendations
 }
-
