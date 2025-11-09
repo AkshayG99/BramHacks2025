@@ -8,7 +8,7 @@ import type {
   EarthEngineData,
   FirmsDetection,
 } from '@/types'
-import { Flame, Gauge, MapPin, Loader2, CloudRain, Wind, Droplets, Thermometer, Lightbulb, AlertTriangle } from 'lucide-react'
+import { Flame, Gauge, MapPin, Loader2, CloudRain, Wind, Droplets, Thermometer, Lightbulb, AlertTriangle, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 
 interface HeaderProps {
   onSearchLocation: (query: string) => Promise<void>
@@ -25,6 +25,7 @@ interface HeaderProps {
     aiRiskLevel?: string
   } | null
   insightsError?: string | null
+  isInsightsLoading?: boolean
   firmsDetections?: FirmsDetection[]
   firmsUpdatedAt?: string | null
   isFirmsLoading?: boolean
@@ -71,6 +72,7 @@ export default function Header({
   isSearchLoading,
   insights,
   insightsError,
+  isInsightsLoading,
   firmsDetections,
   firmsUpdatedAt,
   isFirmsLoading,
@@ -81,12 +83,20 @@ export default function Header({
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [isSuggestLoading, setIsSuggestLoading] = useState(false)
   const [briefingTimestamp, setBriefingTimestamp] = useState<string>('—')
+  const [isInsightsExpanded, setIsInsightsExpanded] = useState(true)
 
   useEffect(() => {
     setBriefingTimestamp(
       new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
     )
   }, [])
+
+  // Auto-expand insights when location changes and insights are being loaded
+  useEffect(() => {
+    if (isInsightsLoading) {
+      setIsInsightsExpanded(true)
+    }
+  }, [isInsightsLoading, selectedLocation])
 
   useEffect(() => {
     if (!searchQuery.trim() || searchQuery.trim().length < 3) {
@@ -350,9 +360,79 @@ export default function Header({
             </div>
           </div>
 
-          {/* Weather Conditions */}
-          {insights?.weather && (
-            <div className="mt-4 rounded-2xl border border-blue-100/70 bg-blue-50/60 p-4">
+          {/* Insights Dropdown Toggle */}
+          <div className="mt-4">
+            <button
+              onClick={() => setIsInsightsExpanded(!isInsightsExpanded)}
+              className="w-full rounded-2xl border border-slate-200/70 bg-white/60 backdrop-blur-sm p-4 flex items-center justify-between hover:bg-white/80 transition-all"
+            >
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-500">
+                  <Sparkles className="w-4 h-4 text-white" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-slate-800">Detailed Insights</p>
+                  <p className="text-xs text-slate-600">Weather, AI Analysis, Recommendations & Risk</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                {isInsightsLoading || !insights ? (
+                  <Loader2 className="w-4 h-4 text-slate-400 animate-spin" />
+                ) : (
+                  <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2 py-1 rounded-full">4</span>
+                )}
+                {isInsightsExpanded ? (
+                  <ChevronUp className="w-5 h-5 text-slate-600" />
+                ) : (
+                  <ChevronDown className="w-5 h-5 text-slate-600" />
+                )}
+              </div>
+            </button>
+
+            {/* Loading State with Animation */}
+            <div 
+              className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                (isInsightsLoading || !insights) && isInsightsExpanded 
+                  ? 'max-h-[1000px] opacity-100' 
+                  : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="mt-4 space-y-4 animate-in fade-in slide-in-from-top-4 duration-700">
+                <div className="rounded-2xl border border-slate-200/70 bg-white/40 backdrop-blur-sm p-4 animate-pulse">
+                  <div className="h-3 bg-slate-200 rounded w-1/4 mb-3"></div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                    <div className="h-12 bg-slate-200 rounded"></div>
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200/70 bg-white/40 backdrop-blur-sm p-4 animate-pulse">
+                  <div className="h-3 bg-slate-200 rounded w-1/3 mb-3"></div>
+                  <div className="h-16 bg-slate-200 rounded"></div>
+                </div>
+                <div className="rounded-2xl border border-slate-200/70 bg-white/40 backdrop-blur-sm p-4 animate-pulse">
+                  <div className="h-3 bg-slate-200 rounded w-1/4 mb-3"></div>
+                  <div className="space-y-2">
+                    <div className="h-4 bg-slate-200 rounded"></div>
+                    <div className="h-4 bg-slate-200 rounded"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Insights Content - Conditionally Rendered with Animation */}
+            <div 
+              className={`overflow-hidden transition-all duration-500 ease-in-out ${
+                insights && !isInsightsLoading && isInsightsExpanded 
+                  ? 'max-h-[2000px] opacity-100' 
+                  : 'max-h-0 opacity-0'
+              }`}
+            >
+              <div className="space-y-4">
+                {/* Weather Conditions */}
+                {insights?.weather && (
+            <div className="mt-4 rounded-2xl border border-blue-100/70 bg-blue-50/60 p-4 animate-in fade-in slide-in-from-top-2 duration-300" style={{ animationDelay: '50ms' }}>
               <p className="text-[10px] uppercase tracking-[0.3em] text-blue-500 mb-2">Current Conditions</p>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="flex items-center gap-2">
@@ -392,13 +472,13 @@ export default function Header({
 
           {/* AI Insights */}
           {insights?.aiInsights && (
-            <div className={`mt-4 rounded-2xl border p-4 ${
+            <div className={`mt-4 rounded-2xl border p-4 animate-in fade-in slide-in-from-top-2 duration-300 ${
               insights.aiInsights.includes('Unable to generate') || 
               insights.aiInsights.includes('unavailable') ||
               insights.aiInsights.includes('quota exceeded')
                 ? 'border-slate-100/70 bg-slate-50/60'
                 : 'border-purple-100/70 bg-purple-50/60'
-            }`}>
+            }`} style={{ animationDelay: '100ms' }}>
               <div className="flex items-start gap-2">
                 <Lightbulb className={`h-5 w-5 mt-0.5 flex-shrink-0 ${
                   insights.aiInsights.includes('Unable to generate') || 
@@ -449,46 +529,49 @@ export default function Header({
             </div>
           )}
 
-          {/* Recommendations */}
-          {insights?.recommendations && insights.recommendations.length > 0 && (
-            <div className="mt-4 rounded-2xl border border-amber-100/70 bg-amber-50/60 p-4">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
-                <div className="flex-1">
-                  <p className="text-[10px] uppercase tracking-[0.3em] text-amber-500 mb-2">Safety Recommendations</p>
-                  <ul className="space-y-1.5">
-                    {insights.recommendations.map((rec, index) => (
-                      <li key={index} className="flex items-start gap-2 text-sm text-amber-900/80">
-                        <span className="text-amber-600 mt-0.5">•</span>
-                        <span>{rec}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
+                {/* Recommendations */}
+                {insights?.recommendations && insights.recommendations.length > 0 && (
+                  <div className="mt-4 rounded-2xl border border-amber-100/70 bg-amber-50/60 p-4 animate-in fade-in slide-in-from-top-2 duration-300" style={{ animationDelay: '150ms' }}>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-[10px] uppercase tracking-[0.3em] text-amber-500 mb-2">Safety Recommendations</p>
+                        <ul className="space-y-1.5">
+                          {insights.recommendations.map((rec, index) => (
+                            <li key={index} className="flex items-start gap-2 text-sm text-amber-900/80">
+                              <span className="text-amber-600 mt-0.5">•</span>
+                              <span>{rec}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
-          {/* Fire Statistics Summary */}
-          {insights?.fire && (
-            <div className="mt-4 rounded-2xl border border-slate-100/70 bg-slate-50/60 p-4">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 mb-2">Fire Risk Analysis</p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-                <div>
-                  <p className="text-xs text-slate-600">Active Fires</p>
-                  <p className="font-semibold text-slate-800">{insights.fire.fireCount || 0}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">Risk Level</p>
-                  <p className="font-semibold text-slate-800 capitalize">{insights.fire.riskLevel || 'Unknown'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-600">Risk Score</p>
-                  <p className="font-semibold text-slate-800">{insights.fire.riskScore || 0}/100</p>
-                </div>
+                {/* Fire Statistics Summary */}
+                {insights?.fire && (
+                  <div className="mt-4 rounded-2xl border border-slate-100/70 bg-slate-50/60 p-4 animate-in fade-in slide-in-from-top-2 duration-300" style={{ animationDelay: '200ms' }}>
+                    <p className="text-[10px] uppercase tracking-[0.3em] text-slate-500 mb-2">Fire Risk Analysis</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                      <div>
+                        <p className="text-xs text-slate-600">Active Fires</p>
+                        <p className="font-semibold text-slate-800">{insights.fire.fireCount || 0}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-600">Risk Level</p>
+                        <p className="font-semibold text-slate-800 capitalize">{insights.fire.riskLevel || 'Unknown'}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs text-slate-600">Risk Score</p>
+                        <p className="font-semibold text-slate-800">{insights.fire.riskScore || 0}/100</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-          )}
+          </div>
 
           {(insightsError || firmsError) && (
             <div className="mt-3 text-xs font-semibold text-rose-500">

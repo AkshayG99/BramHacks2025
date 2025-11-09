@@ -274,6 +274,7 @@ export default function Home() {
         isSearchLoading={isSearchLoading || isLoading}
         insights={insights}
         insightsError={insightsError}
+        isInsightsLoading={isInsightsLoading}
         firmsDetections={firmsDetections}
         firmsUpdatedAt={firmsUpdatedAt}
         firmsError={firmsError}
