@@ -191,25 +191,25 @@ export default function Map({
         const riskLevel =
           riskScore >= 80 ? 'extreme' : riskScore >= 60 ? 'high' : riskScore >= 45 ? 'medium' : 'low'
 
-        const response = await fetch('/api/alerts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            locationName:
-              cityName || `FIRMS hotspot (${detection.latitude.toFixed(2)}, ${detection.longitude.toFixed(2)})`,
-            coordinates: {
-              lat: detection.latitude,
-              lng: detection.longitude,
-            },
-            riskLevel,
-            riskScore,
-            message: `NASA FIRMS hotspot detected ${detection.acquisitionDate} ${detection.acquisitionTime} UTC near ${
-              cityName || `(${detection.latitude.toFixed(2)}, ${detection.longitude.toFixed(2)})`
-            }. Brightness ${Math.round(
-              detection.brightTi4
-            )}K, FRP ${detection.frp.toFixed(1)} MW. Alert nearby residents immediately.`,
-          }),
-        })
+          const response = await fetch('/api/alerts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              locationName:
+                cityName ||
+                `FIRMS hotspot (${detection.latitude.toFixed(2)}, ${detection.longitude.toFixed(2)})`,
+              coordinates: {
+                lat: detection.latitude,
+                lng: detection.longitude,
+              },
+              riskLevel,
+              riskScore,
+              message:
+                `🔥 Forest Fire Alert\n` +
+                `Location: ${cityName || `(${detection.latitude.toFixed(2)}, ${detection.longitude.toFixed(2)})`}\n` +
+                `Tap for details in the dashboard.`,
+            }),
+          });
 
         if (!response.ok) {
           const errorData = await response.json().catch(() => null)
