@@ -8,7 +8,7 @@ import type {
   EarthEngineData,
   FirmsDetection,
 } from '@/types'
-import { Flame, Gauge, MapPin, Loader2, CloudRain, Wind, Droplets, Thermometer, Lightbulb, AlertTriangle, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
+import { Flame, MapPin, Loader2, CloudRain, Wind, Droplets, Thermometer, Lightbulb, AlertTriangle, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
 
 interface HeaderProps {
   onSearchLocation: (query: string) => Promise<void>
@@ -48,18 +48,43 @@ const formatLocationName = (name?: string) => {
   return parts[0] || 'Unknown location'
 }
 
-const getRiskChipStyles = (level?: FireData['riskLevel']) => {
+const getRiskCardStyles = (level?: FireData['riskLevel']) => {
   switch (level) {
     case 'low':
-      return 'text-emerald-700 bg-emerald-50'
+      return {
+        container: 'border-emerald-100/70 bg-emerald-50/60',
+        label: 'text-emerald-500',
+        value: 'text-emerald-700',
+        meta: 'text-emerald-700/70',
+      }
     case 'medium':
-      return 'text-amber-700 bg-amber-50'
+      return {
+        container: 'border-amber-100/70 bg-amber-50/60',
+        label: 'text-amber-600',
+        value: 'text-amber-800',
+        meta: 'text-amber-700/70',
+      }
     case 'high':
-      return 'text-orange-700 bg-orange-50'
+      return {
+        container: 'border-orange-100/70 bg-orange-50/60',
+        label: 'text-orange-600',
+        value: 'text-orange-800',
+        meta: 'text-orange-700/70',
+      }
     case 'extreme':
-      return 'text-rose-700 bg-rose-50'
+      return {
+        container: 'border-rose-100/70 bg-rose-50/60',
+        label: 'text-rose-600',
+        value: 'text-rose-800',
+        meta: 'text-rose-700/70',
+      }
     default:
-      return 'text-slate-700 bg-slate-100'
+      return {
+        container: 'border-slate-200 bg-white/80',
+        label: 'text-slate-500',
+        value: 'text-slate-800',
+        meta: 'text-slate-600/80',
+      }
   }
 }
 
@@ -229,6 +254,9 @@ export default function Header({
   const activeRiskScore = insights?.aiRiskScore ?? insights?.fire?.riskScore
 
   const locationLabel = formatLocationName(selectedLocation?.name)
+  const hottestDetection = firmsSummary.hottest
+  const peakBrightnessValue = hottestDetection ? `${Math.round(hottestDetection.brightTi4)} K` : '—'
+  const riskCardStyles = getRiskCardStyles(activeRiskLevel)
   return (
     <header className="pointer-events-none fixed inset-x-0 top-0 z-50 px-3 pt-3 sm:px-6 sm:pt-6">
       <div className="pointer-events-auto mx-auto max-w-5xl">
@@ -252,20 +280,14 @@ export default function Header({
                 <span className="flex h-2 w-2 animate-pulse rounded-full bg-rose-500" />
                 {locationLabel}
               </div>
-              <div
-                className={`inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-semibold ${getRiskChipStyles(
-                  activeRiskLevel
-                )}`}
-              >
-                <Gauge className="h-4 w-4" />
-                {activeRiskLevel ? activeRiskLevel : 'Risk pending'}
-                {activeRiskScore !== undefined && (
-                  <span className="text-xs font-normal opacity-70">· {activeRiskScore}/100</span>
-                )}
+              <div className="inline-flex items-center gap-2 rounded-2xl border border-rose-100/80 bg-rose-50/80 px-3 py-1 text-xs text-rose-700">
+                <Sparkles className="h-4 w-4" />
+                <div className="leading-tight">
+                  <p className="text-[9px] uppercase tracking-[0.3em] text-rose-500/80">Peak brightness</p>
+                  <p className="text-sm font-semibold text-rose-700">{peakBrightnessValue}</p>
+                </div>
               </div>
-              <div className="text-xs text-apple-dark/60">
-                Briefing {briefingTimestamp}
-              </div>
+              
             </div>
           </div>
 
@@ -347,15 +369,13 @@ export default function Header({
               <p className="text-2xl font-semibold text-emerald-700">{PEOPLE_AT_RISK}</p>
               <p className="text-xs text-emerald-700/70">Estimated population in danger zone</p>
             </div>
-            <div className="rounded-2xl border border-rose-100/70 bg-rose-50/60 p-4">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-rose-500">Peak brightness</p>
-              <p className="text-2xl font-semibold text-rose-700">
-                {firmsSummary.hottest ? `${Math.round(firmsSummary.hottest.brightTi4)} K` : '—'}
+            <div className={`rounded-2xl border ${riskCardStyles.container} px-4 py-3`}>
+              <p className={`text-[10px] uppercase tracking-[0.3em] ${riskCardStyles.label}`}>Fire score</p>
+              <p className={`mt-0.5 text-2xl font-semibold capitalize ${riskCardStyles.value}`}>
+                {activeRiskLevel ? activeRiskLevel : 'Risk pending'}
               </p>
-              <p className="text-xs text-rose-700/70">
-                {firmsSummary.hottest
-                  ? `${firmsSummary.hottest.acquisitionDate} • ${firmsSummary.hottest.acquisitionTime}`
-                  : 'Standing by'}
+              <p className={`mt-0.5 text-xs ${riskCardStyles.meta}`}>
+                {activeRiskScore !== undefined ? `Score ${activeRiskScore}/100` : 'Awaiting AI briefing'}
               </p>
             </div>
           </div>
