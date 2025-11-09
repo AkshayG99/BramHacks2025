@@ -570,34 +570,6 @@ export default function Header({
                   </div>
                 )}
               </div>
-            </form>
-          </div>
-
-          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <div className="rounded-2xl border border-orange-100/70 bg-orange-50/60 p-4">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-orange-500">Hotspots</p>
-              <p className="text-2xl font-semibold text-orange-700">
-                {isFirmsLoading ? '—' : firmsSummary.total}
-              </p>
-              <p className="text-xs text-orange-700/70">
-                {firmsSummary.total ? `${firmsSummary.day} day • ${firmsSummary.night} night` : 'Awaiting satellites'}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-emerald-100/70 bg-emerald-50/60 p-4">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-emerald-500">People at risk</p>
-              <p className="text-2xl font-semibold text-emerald-700">{PEOPLE_AT_RISK}</p>
-              <p className="text-xs text-emerald-700/70">Estimated population in danger zone</p>
-            </div>
-            <div className="rounded-2xl border border-rose-100/70 bg-rose-50/60 p-4">
-              <p className="text-[10px] uppercase tracking-[0.3em] text-rose-500">Peak brightness</p>
-              <p className="text-2xl font-semibold text-rose-700">
-                {firmsSummary.hottest ? `${Math.round(firmsSummary.hottest.brightTi4)} K` : '—'}
-              </p>
-              <p className="text-xs text-rose-700/70">
-                {firmsSummary.hottest
-                  ? `${firmsSummary.hottest.acquisitionDate} • ${firmsSummary.hottest.acquisitionTime}`
-                  : 'Standing by'}
-              </p>
             </div>
           </div>
 
@@ -606,7 +578,7 @@ export default function Header({
               {insightsError && <p>Insights: {insightsError}</p>}
               {firmsError && <p>FIRMS: {firmsError}</p>}
             </div>
-          </div>
+          )}
 
           {(insightsError || firmsError) && (
             <div className="mt-3 text-xs font-semibold text-rose-500">
