@@ -4,7 +4,13 @@ import { useState, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import Header from '@/components/Header'
 import Landing from '@/components/Landing'
-import { LocationData, WeatherData, FireData, InsightsData } from '@/types'
+import {
+  LocationData,
+  WeatherData,
+  FireData,
+  InsightsData,
+  FirmsDetection,
+} from '@/types'
 
 const HOME_LOCATION: LocationData = {
   lat: 43.7315,
@@ -34,14 +40,42 @@ export default function Home() {
   } | null>(null)
   const [isInsightsLoading, setIsInsightsLoading] = useState(false)
   const [insightsError, setInsightsError] = useState<string | null>(null)
+  const [firmsDetections, setFirmsDetections] = useState<FirmsDetection[]>([])
+  const [firmsUpdatedAt, setFirmsUpdatedAt] = useState<string | null>(null)
+  const [firmsError, setFirmsError] = useState<string | null>(null)
+  const [isFirmsLoading, setIsFirmsLoading] = useState(false)
+
+  const fetchNearestCityDetails = useCallback(async (lat: number, lng: number) => {
+    const fallbackName = `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
+    try {
+      const response = await fetch(`/api/geocode/reverse?lat=${lat}&lng=${lng}`)
+      if (!response.ok) {
+        throw new Error('Reverse geocode lookup failed')
+      }
+      const data = await response.json()
+      const population = typeof data?.population === 'number' ? data.population : null
+      return {
+        name: data?.shortName || data?.name || fallbackName,
+        population,
+      }
+    } catch (error) {
+      console.error('Reverse geocode error:', error)
+      return {
+        name: fallbackName,
+        population: null,
+      }
+    }
+  }, [])
 
   const handleLocationSelect = useCallback(async (lat: number, lng: number, name?: string) => {
     setIsLoading(true)
     try {
+      const fallbackName = name || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`
       const locationData: LocationData = {
         lat,
         lng,
-        name: name || `Location (${lat.toFixed(4)}, ${lng.toFixed(4)})`,
+        name: fallbackName,
+        population: null,
       }
       console.log('📍 Location Selected:', {
         latitude: locationData.lat,
@@ -50,12 +84,25 @@ export default function Home() {
         coordinates: `(${locationData.lat}, ${locationData.lng})`,
       })
       setSelectedLocation(locationData)
+
+      const resolvedDetails = await fetchNearestCityDetails(lat, lng)
+      setSelectedLocation((prev) => {
+        if (!prev) return prev
+        if (Math.abs(prev.lat - lat) < 0.0001 && Math.abs(prev.lng - lng) < 0.0001) {
+          return {
+            ...prev,
+            name: name ? prev.name : resolvedDetails.name,
+            population: resolvedDetails.population,
+          }
+        }
+        return prev
+      })
     } catch (error) {
       console.error('Error fetching location data:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [])
+  }, [fetchNearestCityDetails])
 
   useEffect(() => {
     if (!selectedLocation) {
@@ -189,6 +236,31 @@ export default function Home() {
     handleGoHome()
   }, [handleGoHome])
 
+  const fetchFirmsDetections = useCallback(async () => {
+    setIsFirmsLoading(true)
+    setFirmsError(null)
+    try {
+      const response = await fetch('/api/firms', { cache: 'no-store' })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null)
+        throw new Error(errorData?.error || `HTTP ${response.status}`)
+      }
+      const data = await response.json()
+      setFirmsDetections(Array.isArray(data?.detections) ? data.detections : [])
+      setFirmsUpdatedAt(data?.updatedAt || null)
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unable to load NASA FIRMS feed'
+      setFirmsError(message)
+    } finally {
+      setIsFirmsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchFirmsDetections()
+  }, [fetchFirmsDetections])
+
   if (showLanding) {
     return <Landing onEnter={handleEnterExperience} />
   }
@@ -199,16 +271,22 @@ export default function Home() {
         onSearchLocation={handleSearchLocation}
         onSelectSuggestion={handleSuggestionSelect}
         selectedLocation={selectedLocation || HOME_LOCATION}
-        analysisLocation={selectedLocation}
         isSearchLoading={isSearchLoading || isLoading}
         insights={insights}
-        isInsightsLoading={isInsightsLoading}
         insightsError={insightsError}
+        firmsDetections={firmsDetections}
+        firmsUpdatedAt={firmsUpdatedAt}
+        firmsError={firmsError}
+        isFirmsLoading={isFirmsLoading}
       />
       <Map
         onLocationSelect={handleLocationSelect}
         selectedLocation={selectedLocation}
         onGoHome={handleGoHome}
+        firmsDetections={firmsDetections}
+        isFirmsLoading={isFirmsLoading}
+        firmsError={firmsError}
+        onRefreshFirms={fetchFirmsDetections}
       />
     </main>
   )

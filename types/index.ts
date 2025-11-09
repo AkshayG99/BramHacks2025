@@ -2,6 +2,7 @@ export interface LocationData {
   lat: number
   lng: number
   name?: string
+  population?: number | null
 }
 
 export interface WeatherData {
@@ -47,3 +48,26 @@ export interface InsightsData {
   aiRiskLevel?: string
 }
 
+export interface FirmsDetection {
+  id: string
+  latitude: number
+  longitude: number
+  brightTi4: number
+  brightTi5?: number | null
+  scan: number
+  track: number
+  acquisitionDate: string
+  acquisitionTime: string
+  satellite: string
+  instrument: string
+  confidence: string
+  version: string
+  frp: number
+  daynight: 'D' | 'N' | string
+}
+
+export interface FirmsApiResponse {
+  detections: FirmsDetection[]
+  updatedAt: string
+  source?: string
+}
